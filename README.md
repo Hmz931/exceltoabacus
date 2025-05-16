@@ -2,6 +2,10 @@
 
 **ExcelToAbacus** est une application web conçue pour transformer des fichiers Excel selon les spécifications du format comptable Abacus F11. Elle offre une interface intuitive permettant aux utilisateurs de glisser-déposer leurs fichiers, de visualiser les statistiques, et de télécharger les données transformées.
 
+🔗 **Accéder à l'application :** [https://testexceltoabacus.netlify.app](https://testexceltoabacus.netlify.app)
+
+---
+
 ## ✨ Fonctionnalités
 
 - 📁 Interface de téléversement avec glisser-déposer
