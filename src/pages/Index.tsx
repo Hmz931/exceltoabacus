@@ -220,24 +220,6 @@ const Index = () => {
                       </div>
                     </div>
 
-                    <div className="bg-amber-50 border border-amber-100 p-4 rounded-lg">
-                      <h3 className="text-lg font-medium text-amber-800 mb-2 flex items-center">
-                        <Image className="mr-2 h-5 w-5" />
-                        Version précédente
-                      </h3>
-                      <p className="text-sm text-amber-700 mb-4">
-                        Ce projet remplace et améliore l'ancienne version d'ExcelToAbacus.
-                      </p>
-                      
-                      <div className="border rounded-md overflow-hidden">
-                        <img 
-                          src="/lovable-uploads/f51b6ca0-029f-4038-88e5-3931d1e74b12.png" 
-                          alt="Ancienne version d'ExcelToAbacus" 
-                          className="w-full h-auto"
-                        />
-                      </div>
-                    </div>
-
                     <FileUpload onFileLoaded={handleFileLoaded} />
                   </div>
                 </CardContent>
