@@ -16,6 +16,7 @@ import { transformData, createExcelFile, downloadExcelFile, generateSummary, Sum
 import FileUpload from "@/components/FileUpload";
 import TransformationSummary from "@/components/TransformationSummary";
 import { Separator } from '@/components/ui/separator';
+import { Download, Image, File } from 'lucide-react';
 
 const Index = () => {
   const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
@@ -104,6 +105,20 @@ const Index = () => {
     });
   };
 
+  const handleTemplateDownload = () => {
+    const link = document.createElement('a');
+    link.href = '/F11_template.xlsx';
+    link.download = 'F11_template.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: "Téléchargement du modèle",
+      description: "Le modèle F11_template.xlsx a été téléchargé.",
+    });
+  };
+
   const resetForm = () => {
     setWorkbook(null);
     setJsonData(null);
@@ -175,7 +190,56 @@ const Index = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <FileUpload onFileLoaded={handleFileLoaded} />
+                  <div className="space-y-6">
+                    <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg">
+                      <h3 className="text-lg font-medium text-blue-800 mb-2 flex items-center">
+                        <File className="mr-2 h-5 w-5" />
+                        Format attendu
+                      </h3>
+                      <p className="text-sm text-blue-700 mb-4">
+                        Le fichier Excel doit contenir les colonnes suivantes : <strong>Date, Compte, Contrepartie, Texte1, Montant, Code TVA</strong>.
+                      </p>
+                      
+                      <div className="space-y-4">
+                        <div className="border rounded-md overflow-hidden">
+                          <img 
+                            src="/lovable-uploads/340744b8-9c20-4d64-9079-922af6b8678f.png" 
+                            alt="Exemple format Excel requis" 
+                            className="w-full h-auto"
+                          />
+                        </div>
+
+                        <Button 
+                          variant="outline"
+                          className="flex items-center"
+                          onClick={handleTemplateDownload}
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Télécharger le modèle (F11_template.xlsx)
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="bg-amber-50 border border-amber-100 p-4 rounded-lg">
+                      <h3 className="text-lg font-medium text-amber-800 mb-2 flex items-center">
+                        <Image className="mr-2 h-5 w-5" />
+                        Version précédente
+                      </h3>
+                      <p className="text-sm text-amber-700 mb-4">
+                        Ce projet remplace et améliore l'ancienne version d'ExcelToAbacus.
+                      </p>
+                      
+                      <div className="border rounded-md overflow-hidden">
+                        <img 
+                          src="/lovable-uploads/f51b6ca0-029f-4038-88e5-3931d1e74b12.png" 
+                          alt="Ancienne version d'ExcelToAbacus" 
+                          className="w-full h-auto"
+                        />
+                      </div>
+                    </div>
+
+                    <FileUpload onFileLoaded={handleFileLoaded} />
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -296,7 +360,7 @@ const Index = () => {
                 </Card>
                 
                 <div className="text-center text-xs text-gray-500">
-                  <p>ExcelToAbacus - Convertissez vos données Excel au format Abacus</p>
+                  <p>© 2025 Hamza Bouguerra | Internal use only | All rights reserved.</p>
                 </div>
               </div>
             </TabsContent>
