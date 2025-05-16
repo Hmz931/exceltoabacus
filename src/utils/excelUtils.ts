@@ -116,30 +116,79 @@ export interface SummaryData {
   totalTransactions: number;
   encaissements: {
     count: number;
-    details: { [key: string]: number };
+    total: number;
+    details: { 
+      [key: string]: {
+        count: number;
+        total: number;
+      }
+    };
   };
   decaissements: {
     count: number;
-    salaires: number;
-    achatsDirects: number;
-    achatsIndirects: number;
+    total: number;
+    salaires: {
+      count: number;
+      amount: number;
+    };
+    achatsDirects: {
+      count: number;
+      amount: number;
+    };
+    achatsIndirects: {
+      count: number;
+      amount: number;
+    };
   };
 }
 
 export const generateSummary = (outputData: ExcelRow[]): SummaryData => {
-  let encaissements = { count: 0, details: {} as { [key: string]: number } };
-  let decaissements = { count: 0, salaires: 0, achatsDirects: 0, achatsIndirects: 0 };
+  let encaissements = { 
+    count: 0, 
+    total: 0, 
+    details: {} as { [key: string]: { count: number; total: number } }
+  };
+  
+  let decaissements = { 
+    count: 0, 
+    total: 0,
+    salaires: { count: 0, amount: 0 },
+    achatsDirects: { count: 0, amount: 0 },
+    achatsIndirects: { count: 0, amount: 0 }
+  };
 
   outputData.forEach((row) => {
     const compte = row["Compte"];
+    const montant = parseFloat(row["Montant"]) || 0;
+
     if (compte >= 1000 && compte <= 1999) {
       encaissements.count++;
-      encaissements.details[compte] = (encaissements.details[compte] || 0) + 1;
+      encaissements.total += montant;
+      
+      if (!encaissements.details[compte]) {
+        encaissements.details[compte] = { count: 0, total: 0 };
+      }
+      
+      encaissements.details[compte].count++;
+      encaissements.details[compte].total += montant;
     } else {
       decaissements.count++;
-      if (compte == 2299) decaissements.salaires++;
-      if (compte >= 4000 && compte <= 4999) decaissements.achatsDirects++;
-      if (compte >= 6000 && compte <= 8999) decaissements.achatsIndirects++;
+      decaissements.total += montant;
+      
+      if (compte == 2299) {
+        decaissements.salaires.count++;
+        decaissements.salaires.amount += montant;
+      }
+      
+      if (compte >= 4000 && compte <= 4999) {
+        decaissements.achatsDirects.count++;
+        decaissements.achatsDirects.amount += montant;
+      }
+      
+      if (compte >= 6000 && compte <= 8999) {
+        decaissements.achatsIndirects.count++;
+        decaissements.achatsIndirects.amount += montant;
+      }
     }
   });
 

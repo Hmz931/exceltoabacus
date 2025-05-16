@@ -12,6 +12,15 @@ const TransformationSummary: React.FC<TransformationSummaryProps> = ({ summaryDa
   const encaissementPercent = Math.round((encaissements.count / totalTransactions) * 100);
   const decaissementPercent = Math.round((decaissements.count / totalTransactions) * 100);
 
+  // Format monetary values
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('fr-CH', {
+      style: 'currency',
+      currency: 'CHF',
+      minimumFractionDigits: 2
+    }).format(amount);
+  };
+
   return (
     <Card className="w-full animate-fade-in">
       <CardHeader>
@@ -48,7 +57,12 @@ const TransformationSummary: React.FC<TransformationSummaryProps> = ({ summaryDa
               <p className="text-sm font-medium flex items-center">
                 <span className="text-blue-600 mr-1">📥</span> Encaissements
               </p>
-              <p className="text-xl font-bold">{encaissements.count}</p>
+              <div className="flex items-baseline">
+                <p className="text-xl font-bold">{encaissements.count}</p>
+                <p className="text-sm text-gray-500 ml-2">
+                  {formatCurrency(encaissements.total)}
+                </p>
+              </div>
             </div>
             <div className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">
               {encaissementPercent}%
@@ -60,10 +74,13 @@ const TransformationSummary: React.FC<TransformationSummaryProps> = ({ summaryDa
           <div className="bg-gray-50 rounded-md p-3 mt-3">
             <p className="text-xs font-medium text-gray-700 mb-2">Détails par compte:</p>
             <div className="space-y-1">
-              {Object.entries(encaissements.details).map(([compte, count]) => (
+              {Object.entries(encaissements.details).map(([compte, value]) => (
                 <div key={compte} className="flex justify-between text-sm">
                   <span>💰 Compte {compte}:</span>
-                  <span className="font-medium">{count} transactions</span>
+                  <div className="font-medium flex flex-col items-end">
+                    <span>{value.count} transactions</span>
+                    <span className="text-xs text-gray-600">{formatCurrency(value.total)}</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -76,7 +93,12 @@ const TransformationSummary: React.FC<TransformationSummaryProps> = ({ summaryDa
               <p className="text-sm font-medium flex items-center">
                 <span className="text-blue-600 mr-1">📤</span> Décaissements
               </p>
-              <p className="text-xl font-bold">{decaissements.count}</p>
+              <div className="flex items-baseline">
+                <p className="text-xl font-bold">{decaissements.count}</p>
+                <p className="text-sm text-gray-500 ml-2">
+                  {formatCurrency(decaissements.total)}
+                </p>
+              </div>
             </div>
             <div className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">
               {decaissementPercent}%
@@ -90,10 +112,13 @@ const TransformationSummary: React.FC<TransformationSummaryProps> = ({ summaryDa
               <CardContent className="p-3">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-xs font-medium text-gray-700">Salaires</p>
-                  <span className="text-sm font-bold">{decaissements.salaires}</span>
+                  <div className="text-right">
+                    <span className="text-sm font-bold">{decaissements.salaires.count}</span>
+                    <p className="text-xs text-gray-600">{formatCurrency(decaissements.salaires.amount)}</p>
+                  </div>
                 </div>
                 <Progress 
-                  value={decaissements.salaires > 0 ? (decaissements.salaires / decaissements.count) * 100 : 0} 
+                  value={decaissements.salaires.count > 0 ? (decaissements.salaires.count / decaissements.count) * 100 : 0} 
                   className="h-1" 
                 />
               </CardContent>
@@ -103,10 +128,13 @@ const TransformationSummary: React.FC<TransformationSummaryProps> = ({ summaryDa
               <CardContent className="p-3">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-xs font-medium text-gray-700">Achats directs</p>
-                  <span className="text-sm font-bold">{decaissements.achatsDirects}</span>
+                  <div className="text-right">
+                    <span className="text-sm font-bold">{decaissements.achatsDirects.count}</span>
+                    <p className="text-xs text-gray-600">{formatCurrency(decaissements.achatsDirects.amount)}</p>
+                  </div>
                 </div>
                 <Progress 
-                  value={decaissements.achatsDirects > 0 ? (decaissements.achatsDirects / decaissements.count) * 100 : 0} 
+                  value={decaissements.achatsDirects.count > 0 ? (decaissements.achatsDirects.count / decaissements.count) * 100 : 0} 
                   className="h-1" 
                 />
               </CardContent>
@@ -116,10 +144,13 @@ const TransformationSummary: React.FC<TransformationSummaryProps> = ({ summaryDa
               <CardContent className="p-3">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-xs font-medium text-gray-700">Achats indirects</p>
-                  <span className="text-sm font-bold">{decaissements.achatsIndirects}</span>
+                  <div className="text-right">
+                    <span className="text-sm font-bold">{decaissements.achatsIndirects.count}</span>
+                    <p className="text-xs text-gray-600">{formatCurrency(decaissements.achatsIndirects.amount)}</p>
+                  </div>
                 </div>
                 <Progress 
-                  value={decaissements.achatsIndirects > 0 ? (decaissements.achatsIndirects / decaissements.count) * 100 : 0} 
+                  value={decaissements.achatsIndirects.count > 0 ? (decaissements.achatsIndirects.count / decaissements.count) * 100 : 0} 
                   className="h-1" 
                 />
               </CardContent>
