@@ -340,10 +340,8 @@ const Index = () => {
                     </Button>
                   </CardFooter>
                 </Card>
+
                 
-                <div className="text-center text-xs text-gray-500">
-                  <p>© 2025 Hamza Bouguerra | Internal use only | All rights reserved.</p>
-                </div>
               </div>
             </TabsContent>
           </div>
