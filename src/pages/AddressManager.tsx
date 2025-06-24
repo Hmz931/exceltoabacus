@@ -34,7 +34,7 @@ const AddressManager = () => {
   const downloadSupplierTemplate = () => {
     // Create a link to download the existing template
     const link = document.createElement('a');
-    link.href = '/F11_template.xlsx';
+    link.href = '/Adresses_Fournisseurs_Template.xlsx';
     link.download = 'Adresses_Fournisseurs_Template.xlsx';
     link.click();
     
