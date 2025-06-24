@@ -84,7 +84,7 @@ const AddressManager = () => {
           <ProcessingType>0</ProcessingType>
         </BeneficiaryAccount>
         <PaymentMethod mode="SAVE">
-          <BeneficiaryAddressNumber>${supplierNum}</BeneficiaryAddressNumber>
+          <BeneficiaryAddressNumber/>
           <BeneficiaryNumber>${idx + 1}</BeneficiaryNumber>
           <PaymentMethodNumber>${idx + 1}</PaymentMethodNumber>
           <BeneficiaryCountry>${escapeXML(country)}</BeneficiaryCountry>
