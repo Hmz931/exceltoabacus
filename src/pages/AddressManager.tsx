@@ -390,7 +390,7 @@ const AddressManager = () => {
           <Transaction id="{TransactionID}">
             <Customer mode="{Mode}">
               <CodeName>{CodeName}</CodeName>
-              <CustomerNumber>{CustomerNumber}</CustomerNumber>
+              <CustomerNumber/>
               <CustomerID/>
               <PaymentTermNumber>1</PaymentTermNumber>
               <TurnoverCustomer>0</TurnoverCustomer>
