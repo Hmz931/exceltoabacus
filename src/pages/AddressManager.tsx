@@ -1,12 +1,12 @@
-
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/use-toast";
-import { Download, File } from 'lucide-react';
+import { Download, File, Github, Info } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const AddressManager = () => {
@@ -32,24 +32,11 @@ const AddressManager = () => {
   };
 
   const downloadSupplierTemplate = () => {
-    const data = [{
-      Nom: '',
-      'Ligne supplémentaire': '',
-      Adresse: '',
-      Numero: '',
-      'Code postal': '',
-      Ville: '',
-      Pays: '',
-      'Téléphone 1': '',
-      WWW: '',
-      'E-mail': '',
-      'N° TVA': '',
-      IBAN: ''
-    }];
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Fournisseurs');
-    XLSX.writeFile(wb, 'Adresses_Fournisseurs.xlsx');
+    // Create a link to download the existing template
+    const link = document.createElement('a');
+    link.href = '/F11_template.xlsx';
+    link.download = 'Adresses_Fournisseurs_Template.xlsx';
+    link.click();
     
     toast({
       title: "Modèle téléchargé",
@@ -70,7 +57,7 @@ const AddressManager = () => {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Clients');
-    XLSX.writeFile(wb, 'Adresses_Clients.xlsx');
+    XLSX.writeFile(wb, 'Adresses_Clients_Template.xlsx');
     
     toast({
       title: "Modèle téléchargé",
@@ -652,31 +639,74 @@ const AddressManager = () => {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Gestion des Adresses</h1>
           <p className="mt-2 text-lg text-gray-600">
-            Générez des fichiers XML pour fournisseurs et clients, convertissez vos données
+            Convertissez vos fichiers Excel en XML pour Abacus et vice versa
           </p>
+          <div className="mt-4 flex justify-center">
+            <a 
+              href="https://github.com/yourusername/excel-to-abacus" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center text-blue-600 hover:text-blue-800"
+            >
+              <Github className="mr-2 h-4 w-4" />
+              Voir le code source sur GitHub
+            </a>
+          </div>
         </div>
+
+        {/* Instructions générales */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Info className="mr-2 h-5 w-5" />
+              Instructions d'utilisation
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <h4 className="font-semibold text-green-700">Pour créer des fichiers XML :</h4>
+                <ol className="list-decimal list-inside text-sm space-y-1">
+                  <li>Téléchargez le modèle Excel approprié</li>
+                  <li>Remplissez le fichier avec vos données</li>
+                  <li>Configurez le mode et numéro initial</li>
+                  <li>Téléchargez votre fichier rempli pour générer le XML</li>
+                </ol>
+              </div>
+              <div className="space-y-2">
+                <h4 className="font-semibold text-blue-700">Pour importer dans Abacus :</h4>
+                <ol className="list-decimal list-inside text-sm space-y-1">
+                  <li>Ouvrez l'application F625 dans Abacus</li>
+                  <li>Sélectionnez "Fichier" → "Importer"</li>
+                  <li>Choisissez votre fichier XML généré</li>
+                  <li>Suivez les instructions d'importation d'Abacus</li>
+                </ol>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="space-y-6">
           {/* Générer XML Fournisseurs */}
           <Card>
             <CardHeader>
-              <CardTitle>Générer XML Fournisseurs</CardTitle>
+              <CardTitle>1. Générer XML Fournisseurs</CardTitle>
               <CardDescription>
-                Créez un fichier XML pour importer des fournisseurs dans Abacus
+                Convertissez vos données fournisseurs Excel au format XML Abacus
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="supplier-mode">Mode :</Label>
+                  <Label htmlFor="supplier-mode">Mode d'importation :</Label>
                   <Select value={supplierMode} onValueChange={setSupplierMode}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="INSERT">INSERT</SelectItem>
-                      <SelectItem value="SAVE">SAVE</SelectItem>
-                      <SelectItem value="UPDATE">UPDATE</SelectItem>
+                      <SelectItem value="INSERT">INSERT (Nouveau)</SelectItem>
+                      <SelectItem value="SAVE">SAVE (Créer/Modifier)</SelectItem>
+                      <SelectItem value="UPDATE">UPDATE (Modifier uniquement)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -687,50 +717,71 @@ const AddressManager = () => {
                     value={supplierNumber}
                     onChange={(e) => setSupplierNumber(parseInt(e.target.value) || 450)}
                     min="1"
+                    placeholder="Ex: 450"
                   />
                 </div>
               </div>
               
               <div>
-                <Label htmlFor="supplier-file">Télécharger fichier Excel (Adresses Fournisseurs.xlsx) :</Label>
+                <Label htmlFor="supplier-file">Fichier Excel rempli :</Label>
                 <Input
                   type="file"
                   accept=".xlsx,.xls"
                   onChange={generateSupplierXML}
+                  className="mt-1"
                 />
+                <p className="text-sm text-gray-500 mt-1">
+                  Sélectionnez votre fichier Excel rempli pour générer le XML
+                </p>
               </div>
               
-              <Button 
-                onClick={downloadSupplierTemplate}
-                variant="outline"
-                className="flex items-center"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Télécharger modèle Fournisseurs
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="flex items-center">
+                    <Download className="mr-2 h-4 w-4" />
+                    Télécharger modèle Fournisseurs
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Télécharger le modèle Fournisseurs</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Vous allez télécharger le modèle Excel pour les fournisseurs. 
+                      Ce fichier contient toutes les colonnes nécessaires que vous devrez remplir 
+                      avec vos données avant de générer le XML.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction onClick={downloadSupplierTemplate}>
+                      Télécharger
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </CardContent>
           </Card>
 
           {/* Générer XML Clients */}
           <Card>
             <CardHeader>
-              <CardTitle>Générer XML Clients</CardTitle>
+              <CardTitle>2. Générer XML Clients</CardTitle>
               <CardDescription>
-                Créez un fichier XML pour importer des clients dans Abacus
+                Convertissez vos données clients Excel au format XML Abacus
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="customer-mode">Mode :</Label>
+                  <Label htmlFor="customer-mode">Mode d'importation :</Label>
                   <Select value={customerMode} onValueChange={setCustomerMode}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="INSERT">INSERT</SelectItem>
-                      <SelectItem value="SAVE">SAVE</SelectItem>
-                      <SelectItem value="UPDATE">UPDATE</SelectItem>
+                      <SelectItem value="INSERT">INSERT (Nouveau)</SelectItem>
+                      <SelectItem value="SAVE">SAVE (Créer/Modifier)</SelectItem>
+                      <SelectItem value="UPDATE">UPDATE (Modifier uniquement)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -741,47 +792,94 @@ const AddressManager = () => {
                     value={customerNumber}
                     onChange={(e) => setCustomerNumber(parseInt(e.target.value) || 86)}
                     min="1"
+                    placeholder="Ex: 86"
                   />
                 </div>
               </div>
               
               <div>
-                <Label htmlFor="customer-file">Télécharger fichier Excel (Adresses Clients.xlsx) :</Label>
+                <Label htmlFor="customer-file">Fichier Excel rempli :</Label>
                 <Input
                   type="file"
                   accept=".xlsx,.xls"
                   onChange={generateCustomerXML}
+                  className="mt-1"
                 />
+                <p className="text-sm text-gray-500 mt-1">
+                  Sélectionnez votre fichier Excel rempli pour générer le XML
+                </p>
               </div>
               
-              <Button 
-                onClick={downloadCustomerTemplate}
-                variant="outline"
-                className="flex items-center"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Télécharger modèle Clients
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="flex items-center">
+                    <Download className="mr-2 h-4 w-4" />
+                    Télécharger modèle Clients
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Télécharger le modèle Clients</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Vous allez télécharger le modèle Excel pour les clients. 
+                      Ce fichier contient toutes les colonnes nécessaires que vous devrez remplir 
+                      avec vos données avant de générer le XML.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction onClick={downloadCustomerTemplate}>
+                      Télécharger
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </CardContent>
           </Card>
 
           {/* Convertir XML en Excel */}
           <Card>
             <CardHeader>
-              <CardTitle>Convertir XML en Excel</CardTitle>
+              <CardTitle>3. Convertir XML en Excel</CardTitle>
               <CardDescription>
-                Convertissez un fichier XML d'adresses en format Excel
+                Convertissez un fichier XML Abacus vers le format Excel pour modification
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="xml-file">Télécharger fichier XML (Adresses.xml) :</Label>
+                <Label htmlFor="xml-file">Fichier XML à convertir :</Label>
                 <Input
                   type="file"
                   accept=".xml"
                   onChange={convertXMLtoExcel}
+                  className="mt-1"
                 />
+                <p className="text-sm text-gray-500 mt-1">
+                  Sélectionnez un fichier XML d'adresses pour le convertir en Excel
+                </p>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Information sur F625 */}
+          <Card className="border-blue-200 bg-blue-50">
+            <CardHeader>
+              <CardTitle className="text-blue-800">💡 Import dans Abacus via F625</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-blue-700 mb-3">
+                Pour importer vos fichiers XML dans Abacus :
+              </p>
+              <ol className="list-decimal list-inside text-blue-700 space-y-2">
+                <li>Ouvrez Abacus et naviguez vers l'application <strong>F625</strong></li>
+                <li>Dans le menu, sélectionnez <strong>Fichier</strong> → <strong>Importer</strong></li>
+                <li>Choisissez votre fichier XML généré par cet outil</li>
+                <li>Configurez les paramètres d'import selon vos besoins</li>
+                <li>Lancez l'importation et vérifiez les résultats</li>
+              </ol>
+              <p className="text-blue-600 text-sm mt-3">
+                <strong>Note :</strong> Assurez-vous d'avoir les droits nécessaires dans Abacus pour importer des données.
+              </p>
             </CardContent>
           </Card>
         </div>
