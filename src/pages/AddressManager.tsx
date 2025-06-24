@@ -739,16 +739,6 @@ const AddressManager = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label htmlFor="supplier-number">Numéro de fournisseur initial :</Label>
-                  <Input
-                    type="number"
-                    value={supplierNumber}
-                    onChange={(e) => setSupplierNumber(parseInt(e.target.value) || 450)}
-                    min="1"
-                    placeholder="Ex: 450"
-                  />
-                </div>
               </div>
               
               <div>
