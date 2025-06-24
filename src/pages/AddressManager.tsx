@@ -14,6 +14,8 @@ const AddressManager = () => {
   const [supplierNumber, setSupplierNumber] = useState(450);
   const [customerMode, setCustomerMode] = useState('INSERT');
   const [customerNumber, setCustomerNumber] = useState(86);
+  const [generatedXML, setGeneratedXML] = useState<string | null>(null);
+  const [xmlType, setXmlType] = useState<'supplier' | 'customer' | null>(null);
 
   // Utility functions
   const escapeXML = (value: any): string => {
@@ -137,6 +139,25 @@ const AddressManager = () => {
       `;
     }
     return ibanDataXML;
+  };
+
+  const downloadGeneratedXML = () => {
+    if (!generatedXML) return;
+    
+    const blob = new Blob([generatedXML], { type: 'text/xml' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'Adresses.xml';
+    link.click();
+    
+    // Clear the generated XML after download
+    setGeneratedXML(null);
+    setXmlType(null);
+    
+    toast({
+      title: "XML téléchargé",
+      description: "Le fichier XML a été téléchargé avec succès.",
+    });
   };
 
   const generateSupplierXML = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -328,15 +349,12 @@ const AddressManager = () => {
   </Task>
 </AbaConnectContainer>`;
 
-        const blob = new Blob([xmlOutput], { type: 'text/xml' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = 'Adresses.xml';
-        link.click();
+        setGeneratedXML(xmlOutput);
+        setXmlType('supplier');
 
         toast({
           title: "XML généré",
-          description: "Le fichier XML des fournisseurs a été généré avec succès.",
+          description: "Le fichier XML des fournisseurs a été généré avec succès. Cliquez sur le bouton de téléchargement pour l'obtenir.",
         });
       } catch (error) {
         toast({
@@ -517,15 +535,12 @@ const AddressManager = () => {
   </Task>
 </AbaConnectContainer>`;
 
-        const blob = new Blob([xmlOutput], { type: 'text/xml' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = 'Adresses.xml';
-        link.click();
+        setGeneratedXML(xmlOutput);
+        setXmlType('customer');
 
         toast({
           title: "XML généré",
-          description: "Le fichier XML des clients a été généré avec succès.",
+          description: "Le fichier XML des clients a été généré avec succès. Cliquez sur le bouton de téléchargement pour l'obtenir.",
         });
       } catch (error) {
         toast({
@@ -645,6 +660,28 @@ const AddressManager = () => {
             </a>
           </div>
         </div>
+
+        {/* Download button for generated XML */}
+        {generatedXML && (
+          <Card className="mb-6 border-green-200 bg-green-50">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-green-800">
+                    XML {xmlType === 'supplier' ? 'Fournisseurs' : 'Clients'} généré avec succès
+                  </h3>
+                  <p className="text-green-600">
+                    Votre fichier XML est prêt à être téléchargé
+                  </p>
+                </div>
+                <Button onClick={downloadGeneratedXML} className="bg-green-600 hover:bg-green-700">
+                  <Download className="mr-2 h-4 w-4" />
+                  Télécharger XML
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Instructions générales */}
         <Card className="mb-6">
