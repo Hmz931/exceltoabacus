@@ -45,19 +45,11 @@ const AddressManager = () => {
   };
 
   const downloadCustomerTemplate = () => {
-    const data = [{
-      CodeName: '',
-      Nom: '',
-      'Ligne supplémentaire': '',
-      Adresse: '',
-      Numero: '',
-      'Code postal': '',
-      Ville: ''
-    }];
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Clients');
-    XLSX.writeFile(wb, 'Adresses_Clients_Template.xlsx');
+    // Create a link to download the existing template
+    const link = document.createElement('a');
+    link.href = '/Adresses_Clients_Template.xlsx';
+    link.download = 'Adresses_Clients_Template.xlsx';
+    link.click();
     
     toast({
       title: "Modèle téléchargé",
