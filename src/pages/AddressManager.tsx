@@ -182,10 +182,10 @@ const AddressManager = () => {
         const transactionTemplate = `
           <Transaction id="{TransactionID}">
             <Supplier mode="{Mode}">
-              <Number>{SupplierNumber}</Number>
+              <Number/>
               <AddressData mode="SAVE">
                 <CodeName>{CodeName}</CodeName>
-                <Number>{SupplierNumber}</Number>
+                <Number/>
                 <Name>{Name}</Name>
                 <FirstName/>
                 {AdditionalLineField}
@@ -243,8 +243,8 @@ const AddressManager = () => {
                 <ProcessingType>0</ProcessingType>
               </CurrencyData>
               <DetailData mode="SAVE">
-                <Number>{SupplierNumber}</Number>
-                <AddressNumber>{SupplierNumber}</AddressNumber>
+                <Number/>
+                <AddressNumber/>
                 <Condition>1</Condition>
                 <PersonInCharge>0</PersonInCharge>
                 <Division>0</Division>
@@ -268,7 +268,7 @@ const AddressManager = () => {
                 <DispositionBlocked>0</DispositionBlocked>
                 <AdviceBlocked>0</AdviceBlocked>
                 <AdviceType>0</AdviceType>
-                <AdviceAddressNumber>{SupplierNumber}</AdviceAddressNumber>
+                <AdviceAddressNumber/>
                 <AdviceContactNumber>0</AdviceContactNumber>
                 <PaymentMethod>1</PaymentMethod>
                 <AccountProposalType>2</AccountProposalType>
