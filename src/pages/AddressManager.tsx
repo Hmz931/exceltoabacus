@@ -662,7 +662,7 @@ const AddressManager = () => {
                   className="mt-1"
                 />
                 <p className="text-sm text-gray-500 mt-1">
-                   Sélectionnez votre fichier Excel rempli pour générer le XML. Les colonnes obligatoires suivantes doivent être renseignées : "Nom", "Code postal", "Ville" et "Pays". Ces champs ne doivent pas être vides
+                   Sélectionnez votre fichier Excel rempli pour générer le XML. Les colonnes obligatoires suivantes doivent être renseignées : <b>"Nom", "Code postal", "Ville" et "Pays"</b>. Ces champs ne doivent pas être vides.                  
                 </p>
               </div>
               
