@@ -59,27 +59,6 @@ const AddressManager = () => {
     });
   };
 
-  const downloadAdditionalTemplate1 = () => {
-    toast({
-      title: "Template 1",
-      description: "Téléchargement du template additionnel 1.",
-    });
-  };
-
-  const downloadAdditionalTemplate2 = () => {
-    toast({
-      title: "Template 2", 
-      description: "Téléchargement du template additionnel 2.",
-    });
-  };
-
-  const downloadAdditionalTemplate3 = () => {
-    toast({
-      title: "Template 3",
-      description: "Téléchargement du template additionnel 3.",
-    });
-  };
-
   const generateIbanData = (ibans: any, supplierNum: number, country: string): string => {
     if (!ibans) return '';
     const ibansList = String(ibans).split('\n').map(iban => iban.trim().replace(/\s|-/g, ''));
@@ -785,47 +764,30 @@ const AddressManager = () => {
                 </p>
               </div>
               
-              <div className="flex flex-wrap gap-2">
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="outline" className="flex items-center">
-                      <Download className="mr-2 h-4 w-4" />
-                      Télécharger modèle Fournisseurs
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Télécharger le modèle Fournisseurs</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Vous allez télécharger le modèle Excel pour les fournisseurs. 
-                        Ce fichier contient toutes les colonnes nécessaires que vous devrez remplir 
-                        avec vos données avant de générer le XML.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Annuler</AlertDialogCancel>
-                      <AlertDialogAction onClick={downloadSupplierTemplate}>
-                        Télécharger
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-
-                <Button variant="outline" onClick={downloadAdditionalTemplate1} className="flex items-center">
-                  <File className="mr-2 h-4 w-4" />
-                  Template 1
-                </Button>
-
-                <Button variant="outline" onClick={downloadAdditionalTemplate2} className="flex items-center">
-                  <File className="mr-2 h-4 w-4" />
-                  Template 2
-                </Button>
-
-                <Button variant="outline" onClick={downloadAdditionalTemplate3} className="flex items-center">
-                  <File className="mr-2 h-4 w-4" />
-                  Template 3
-                </Button>
-              </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="flex items-center">
+                    <Download className="mr-2 h-4 w-4" />
+                    Télécharger modèle Fournisseurs
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Télécharger le modèle Fournisseurs</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Vous allez télécharger le modèle Excel pour les fournisseurs. 
+                      Ce fichier contient toutes les colonnes nécessaires que vous devrez remplir 
+                      avec vos données avant de générer le XML.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction onClick={downloadSupplierTemplate}>
+                      Télécharger
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </CardContent>
           </Card>
 
@@ -877,47 +839,30 @@ const AddressManager = () => {
                 </p>
               </div>
               
-              <div className="flex flex-wrap gap-2">
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="outline" className="flex items-center">
-                      <Download className="mr-2 h-4 w-4" />
-                      Télécharger modèle Clients
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Télécharger le modèle Clients</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Vous allez télécharger le modèle Excel pour les clients. 
-                        Ce fichier contient toutes les colonnes nécessaires que vous devrez remplir 
-                        avec vos données avant de générer le XML.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Annuler</AlertDialogCancel>
-                      <AlertDialogAction onClick={downloadCustomerTemplate}>
-                        Télécharger
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-
-                <Button variant="outline" onClick={downloadAdditionalTemplate1} className="flex items-center">
-                  <File className="mr-2 h-4 w-4" />
-                  Template 1
-                </Button>
-
-                <Button variant="outline" onClick={downloadAdditionalTemplate2} className="flex items-center">
-                  <File className="mr-2 h-4 w-4" />
-                  Template 2
-                </Button>
-
-                <Button variant="outline" onClick={downloadAdditionalTemplate3} className="flex items-center">
-                  <File className="mr-2 h-4 w-4" />
-                  Template 3
-                </Button>
-              </div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="flex items-center">
+                    <Download className="mr-2 h-4 w-4" />
+                    Télécharger modèle Clients
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Télécharger le modèle Clients</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Vous allez télécharger le modèle Excel pour les clients. 
+                      Ce fichier contient toutes les colonnes nécessaires que vous devrez remplir 
+                      avec vos données avant de générer le XML.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction onClick={downloadCustomerTemplate}>
+                      Télécharger
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </CardContent>
           </Card>
 
