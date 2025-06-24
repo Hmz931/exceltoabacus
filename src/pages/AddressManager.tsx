@@ -387,114 +387,26 @@ const AddressManager = () => {
         const json = XLSX.utils.sheet_to_json(sheet);
 
         const transactionTemplate = `
-          <Transaction id="{TransactionID}">
+            <Transaction id="{TransactionID}">
             <Customer mode="{Mode}">
               <CodeName>{CodeName}</CodeName>
+              <UniqueReference>SomeReference1234</UniqueReference>
               <CustomerNumber/>
-              <CustomerID/>
-              <PaymentTermNumber>1</PaymentTermNumber>
-              <TurnoverCustomer>0</TurnoverCustomer>
-              <PersonInCharge>0</PersonInCharge>
-              <NoTurnoverActive>false</NoTurnoverActive>
-              <CreditLimitType>0</CreditLimitType>
-              <CreditLimitAmount>0</CreditLimitAmount>
-              <CreditLimitFromTurnoverCustomer>false</CreditLimitFromTurnoverCustomer>
               <MultipleCurrenciesActive>false</MultipleCurrenciesActive>
               <DefaultCurrency>CHF</DefaultCurrency>
-              <AccountProposalType>0</AccountProposalType>
-              <AccountProposalNumber>0</AccountProposalNumber>
-              <ReminderAddress>0</ReminderAddress>
-              <ReminderContact>0</ReminderContact>
-              <ReminderProcedure>NORM</ReminderProcedure>
-              <ReminderArea>0</ReminderArea>
-              <ReminderType>0</ReminderType>
-              <ReminderDeliveryFlag>false</ReminderDeliveryFlag>
-              <ReminderNoReminder>false</ReminderNoReminder>
-              <ReminderBlocked>false</ReminderBlocked>
-              <ReminderIntervalMinimised>false</ReminderIntervalMinimised>
-              <ReminderBlockedUntil/>
-              <ReminderBlockedDeliveryFlag>false</ReminderBlockedDeliveryFlag>
-              <CollectiveDebtor>false</CollectiveDebtor>
-              <InactiveFrom/>
-              <Division>0</Division>
-              <Intercompany>0</Intercompany>
-              <CostGroup>0</CostGroup>
-              <CustomerCommissionGroup>0</CustomerCommissionGroup>
-              <CommissionPayer1>0</CommissionPayer1>
-              <CommissionPayer2>0</CommissionPayer2>
-              <AbcCode/>
-              <CashManagementGroup>0</CashManagementGroup>
-              <GroupNumber1>0</GroupNumber1>
-              <GroupNumber2>0</GroupNumber2>
-              <GroupNumber3>0</GroupNumber3>
-              <GroupCode1/>
-              <GroupCode2/>
-              <GroupCode3/>
-              <Tenant>false</Tenant>
-              <DispositionDateFlag>0</DispositionDateFlag>
-              <DispositionDateDays>0</DispositionDateDays>
-              <OutpaymentMethod>0</OutpaymentMethod>
-              <DebitMethod>0</DebitMethod>
-              <SubLedgerAccountNumber>0</SubLedgerAccountNumber>
-              <DispatchType>0</DispatchType>
-              <RemindWaitPeriodDays>0</RemindWaitPeriodDays>
-              <OverrideWaitPerDays>false</OverrideWaitPerDays>
               <AddressData mode="{Mode}">
-                <AddressNumber></AddressNumber>
-                <CodeName>{CodeName}</CodeName>
+                <AddressNumber/>
                 <Name>{Name}</Name>
-                <FirstName/>
-                <AdditionalLine>{AdditionalLine}</AdditionalLine>
                 <Line1>{Line1}</Line1>
-                <Line2/>
-                <Line3/>
-                <Line4/>
                 <Country>CH</Country>
                 <ZIP>{ZIP}</ZIP>
                 <City>{City}</City>
-                <Phone1/>
-                <Phone2/>
-                <Fax/>
-                <Mobile/>
-                <SalutationNumber>0</SalutationNumber>
-                <SalutationName/>
-                <Title/>
-                <IndustryCode>0</IndustryCode>
-                <Text/>
-                <Website/>
-                <Email/>
                 <Language>fr</Language>
-                <FreeDate/>
-                <FreeField1/>
-                <FreeField2/>
-                <SubjectType>2</SubjectType>
-                <AANMainSubject>0</AANMainSubject>
+                <AdditionalLine>{AdditionalLine}</AdditionalLine>
                 <AddressValidAsOf>2021-01-01</AddressValidAsOf>
-                <TaxIDSwitzerland/>
-                <TaxIDEuropeanUnion/>
-                <PostRoute>0</PostRoute>
-                <HouseNumber>{HouseNumber}</HouseNumber>
-                <Street>{Street}</Street>
-                <PostOfficeBoxText/>
-                <PostOfficeBoxNumber/>
-                <StreetAddition/>
-                <AddressAddition/>
-                <DwellingNumber/>
-                <MunicipalityCode>6621</MunicipalityCode>
-                <BuildingNumber>0</BuildingNumber>
-                <OpenLocationCode/>
-                <StreetHouseNumber>{Street} {HouseNumber}</StreetHouseNumber>
-                <PostOfficeBoxTextNumber/>
               </AddressData>
               <CurrencyData mode="{Mode}">
                 <Currency>CHF</Currency>
-                <TaxCode/>
-                <CurrencyRisk>0</CurrencyRisk>
-                <CurrencyLimitAmount>0</CurrencyLimitAmount>
-                <PaymentOrderESRProcedure>0</PaymentOrderESRProcedure>
-                <PaymentOrderIPIProcedure>0</PaymentOrderIPIProcedure>
-                <StandardProcedure>3</StandardProcedure>
-                <PaymentOrderEZProcedure>1</PaymentOrderEZProcedure>
               </CurrencyData>
             </Customer>
           </Transaction>
