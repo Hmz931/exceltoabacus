@@ -643,7 +643,7 @@ const AddressManager = () => {
           </p>
           <div className="mt-4 flex justify-center">
             <a 
-              href="https://github.com/yourusername/excel-to-abacus" 
+              href="https://github.com/Hmz931/exceltoabacus" 
               target="_blank" 
               rel="noopener noreferrer"
               className="inline-flex items-center text-blue-600 hover:text-blue-800"
