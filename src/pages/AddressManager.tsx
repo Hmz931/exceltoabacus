@@ -716,16 +716,6 @@ const AddressManager = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label htmlFor="customer-number">Numéro de client initial :</Label>
-                  <Input
-                    type="number"
-                    value={customerNumber}
-                    onChange={(e) => setCustomerNumber(parseInt(e.target.value) || 86)}
-                    min="1"
-                    placeholder="Ex: 86"
-                  />
-                </div>
               </div>
               
               <div>
