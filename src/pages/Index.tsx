@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 import { toast } from "@/components/ui/use-toast";
@@ -17,6 +16,7 @@ import FileUpload from "@/components/FileUpload";
 import TransformationSummary from "@/components/TransformationSummary";
 import { Separator } from '@/components/ui/separator';
 import { Download, Image, File } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Index = () => {
   const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
@@ -154,6 +154,14 @@ const Index = () => {
           <p className="mt-2 text-lg text-gray-600">
             Convertissez vos données Excel au format Abacus en quelques clics
           </p>
+          <div className="mt-4">
+            <Link to="/address-manager">
+              <Button variant="outline" className="flex items-center">
+                <File className="mr-2 h-4 w-4" />
+                Accéder à la Gestion des Adresses
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
@@ -340,8 +348,6 @@ const Index = () => {
                     </Button>
                   </CardFooter>
                 </Card>
-
-                
               </div>
             </TabsContent>
           </div>

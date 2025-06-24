@@ -1,31 +1,52 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import Index from "./pages/Index";
+import AddressManager from "./pages/AddressManager";
 import NotFound from "./pages/NotFound";
-import Footer from "@/components/Footer";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <div className="flex flex-col min-h-screen">
-        <Toaster />
-        <Sonner />
-        <div className="flex-grow">
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <div className="min-h-screen">
+          <nav className="bg-white shadow-sm border-b">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex justify-between h-16">
+                <div className="flex items-center space-x-8">
+                  <Link to="/" className="text-lg font-semibold text-gray-900 hover:text-blue-600">
+                    ExcelToAbacus
+                  </Link>
+                  <Link to="/address-manager" className="text-gray-600 hover:text-blue-600">
+                    Gestion des Adresses
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </nav>
+          
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/address-manager" element={<AddressManager />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          
+          <footer className="bg-gray-50 border-t mt-12">
+            <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+              <p className="text-center text-sm text-gray-600">
+                © 2025 Hamza Bouguerra | Internal use only | All rights reserved.
+              </p>
+            </div>
+          </footer>
         </div>
-        <Footer /> {/* ✅ Footer toujours visible en bas */}
-      </div>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );
