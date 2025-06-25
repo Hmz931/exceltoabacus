@@ -20,12 +20,7 @@ const AddressManager = () => {
   // Utility functions
   const escapeXML = (value: any): string => {
     if (value === null || value === undefined || value === '') return '';
-    return String(value)
-      .replace(/&/g, '&')
-      .replace(/</g, '<')
-      .replace(/>/g, '>')
-      .replace(/"/g, '"')
-      .replace(/'/g, ''');
+    return String(value);
   };
 
   const xmlField = (tag: string, value: any): string => {
@@ -806,7 +801,7 @@ const AddressManager = () => {
               <CardTitle className="text-blue-800">💡 Import dans Abacus via F625</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-blue-700 mb-3">
+              <p className="text-blue-700 mb-2">
                 Pour importer vos fichiers XML dans Abacus :
               </p>
               <ol className="list-decimal list-inside text-blue-700 space-y-2">
