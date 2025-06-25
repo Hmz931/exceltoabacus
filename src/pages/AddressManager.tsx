@@ -34,7 +34,6 @@ const AddressManager = () => {
   };
 
   const downloadSupplierTemplate = () => {
-    // Create a link to download the existing template
     const link = document.createElement('a');
     link.href = '/Adresses_Fournisseurs_Template.xlsx';
     link.download = 'Adresses_Fournisseurs_Template.xlsx';
@@ -47,7 +46,6 @@ const AddressManager = () => {
   };
 
   const downloadCustomerTemplate = () => {
-    // Create a link to download the existing template
     const link = document.createElement('a');
     link.href = '/Adresses_Clients_Template.xlsx';
     link.download = 'Adresses_Clients_Template.xlsx';
@@ -150,7 +148,6 @@ const AddressManager = () => {
     link.download = 'Adresses.xml';
     link.click();
     
-    // Clear the generated XML after download
     setGeneratedXML(null);
     setXmlType(null);
     
@@ -309,8 +306,9 @@ const AddressManager = () => {
 
         let transactions = '';
         (json as any[]).forEach((row: any, index) => {
-          const nameValue = escapeXML(row['Nom'] || '');
-          const codeName = nameValue.toUpperCase().slice(0, 16);
+          const rawName = row['Nom'] || '';
+          const nameValue = escapeXML(rawName);
+          const codeName = escapeXML(rawName.toUpperCase().slice(0, 16));
           const ibanData = generateIbanData(row['IBAN'], supplierNumber + index, row['Pays']);
 
           const transactionXML = transactionTemplate
@@ -414,8 +412,9 @@ const AddressManager = () => {
 
         let transactions = '';
         (json as any[]).forEach((row: any, index) => {
-          const nameValue = escapeXML(row['Nom'] || '');
-          const codeName = nameValue.toUpperCase().slice(0, 16);
+          const rawName = row['Nom'] || '';
+          const nameValue = escapeXML(rawName);
+          const codeName = escapeXML(rawName.toUpperCase().slice(0, 16));
 
           const transactionXML = transactionTemplate
             .replace(/{TransactionID}/g, (index + 1).toString())
@@ -573,7 +572,6 @@ const AddressManager = () => {
           </div>
         </div>
 
-        {/* Download button for generated XML */}
         {generatedXML && (
           <Card className="mb-6 border-green-200 bg-green-50">
             <CardContent className="pt-6">
@@ -595,7 +593,6 @@ const AddressManager = () => {
           </Card>
         )}
 
-        {/* Instructions générales */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -628,7 +625,6 @@ const AddressManager = () => {
         </Card>
 
         <div className="space-y-6">
-          {/* Générer XML Fournisseurs */}
           <Card>
             <CardHeader>
               <CardTitle>1. Générer XML Fournisseurs</CardTitle>
@@ -664,7 +660,6 @@ const AddressManager = () => {
                 <p className="text-sm text-gray-500 mt-1">
                     Sélectionnez votre fichier Excel rempli pour générer le fichier XML.
                     Les champs suivants doivent être renseignés dans votre fichier. 
-                    <br />
                     Les champs marqués d’un astérisque (<span className="font-bold">*</span>) sont obligatoires et ne doivent pas être vides :
                     <ul className="list-disc list-inside mt-2">
                       <li>Nom <span className="font-bold">*</span></li>
@@ -681,7 +676,6 @@ const AddressManager = () => {
                       <li>IBAN</li>
                     </ul>
                   </p>
-
               </div>
               
               <AlertDialog>
@@ -711,7 +705,6 @@ const AddressManager = () => {
             </CardContent>
           </Card>
 
-          {/* Générer XML Clients */}
           <Card>
             <CardHeader>
               <CardTitle>2. Générer XML Clients</CardTitle>
@@ -776,7 +769,6 @@ const AddressManager = () => {
             </CardContent>
           </Card>
 
-          {/* Convertir XML en Excel */}
           <Card>
             <CardHeader>
               <CardTitle>3. Convertir XML en Excel</CardTitle>
@@ -800,7 +792,6 @@ const AddressManager = () => {
             </CardContent>
           </Card>
 
-          {/* Information sur F625 */}
           <Card className="border-blue-200 bg-blue-50">
             <CardHeader>
               <CardTitle className="text-blue-800">💡 Import dans Abacus via F625</CardTitle>
