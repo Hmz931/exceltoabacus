@@ -21,11 +21,11 @@ const AddressManager = () => {
   const escapeXML = (value: any): string => {
     if (value === null || value === undefined || value === '') return '';
     return String(value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
+      .replace(/&/g, '&')
+      .replace(/</g, '<')
+      .replace(/>/g, '>')
+      .replace(/"/g, '"')
+      .replace(/'/g, ''');
   };
 
   const xmlField = (tag: string, value: any): string => {
