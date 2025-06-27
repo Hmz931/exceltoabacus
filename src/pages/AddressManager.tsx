@@ -310,6 +310,7 @@ const AddressManager = () => {
           const nameValue = escapeXML(rawName);
           const codeName = escapeXML(rawName.toUpperCase().slice(0, 16));
           const ibanData = generateIbanData(row['IBAN'], supplierNumber + index, row['Pays']);
+          const additionalLine = String(row['Ligne supplémentaire'] || '').slice(0, 50); // Limit to 50 characters
 
           const transactionXML = transactionTemplate
             .replace(/{TransactionID}/g, (index + 1).toString())
@@ -323,7 +324,7 @@ const AddressManager = () => {
             .replace(/{City}/g, escapeXML(row['Ville'] || ''))
             .replace(/{Country}/g, escapeXML(row['Pays'] || ''))
             .replace(/{Street}/g, escapeXML(row['Adresse'] || ''))
-            .replace(/{AdditionalLineField}/g, xmlField('AdditionalLine', row['Ligne supplémentaire']))
+            .replace(/{AdditionalLineField}/g, xmlField('AdditionalLine', additionalLine))
             .replace(/{Phone1Field}/g, xmlField('Phone1', row['Téléphone 1']))
             .replace(/{WebsiteField}/g, xmlField('Website', row['WWW']))
             .replace(/{EmailField}/g, xmlField('Email', row['E-mail']))
@@ -663,7 +664,7 @@ const AddressManager = () => {
                     Les champs marqués d’un astérisque (<span className="font-bold">*</span>) sont obligatoires et ne doivent pas être vides :
                     <ul className="list-disc list-inside mt-2">
                       <li>Nom <span className="font-bold">*</span></li>
-                      <li>Ligne supplémentaire</li>
+                      <li>Ligne supplémentaire (max 50 caractères)</li>
                       <li>Adresse</li>
                       <li>Numéro</li>
                       <li>Code postal <span className="font-bold">*</span></li>
