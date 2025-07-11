@@ -268,7 +268,7 @@ const AddressManager = () => {
                 <AdviceAddressNumber/>
                 <AdviceContactNumber>0</AdviceContactNumber>
                 <PaymentMethod>1</PaymentMethod>
-                <AccountProposalType>2</AccountProposalType>
+                <AccountProposalType>0</AccountProposalType>
                 <AccountProposalNumber>0</AccountProposalNumber>
                 <EBussinessOptions>0</EBussinessOptions>
                 <AddressNumberFixedFlag>0</AddressNumberFixedFlag>
