@@ -7,7 +7,6 @@ import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import Index from "./pages/Index";
 import AddressManager from "./pages/AddressManager";
 import CamtConverter from "./pages/CamtConverter";
-import XmlConverter from "./pages/XmlConverter";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,23 +29,19 @@ const App = () => (
                     Gestion des Adresses
                   </Link>
                   <Link to="/camt-converter" className="text-gray-600 hover:text-blue-600">
-                    CAMT → Excel
-                  </Link>
-                  <Link to="/xml-converter" className="text-gray-600 hover:text-blue-600">
-                    Excel → XML
+                    Convertisseur CAMT
                   </Link>
                 </div>
               </div>
             </div>
           </nav>
           
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/address-manager" element={<AddressManager />} />
-              <Route path="/camt-converter" element={<CamtConverter />} />
-              <Route path="/xml-converter" element={<XmlConverter />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/address-manager" element={<AddressManager />} />
+            <Route path="/camt-converter" element={<CamtConverter />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
           
           <footer className="bg-gray-50 border-t mt-12">
             <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
