@@ -643,8 +643,8 @@ const AddressManager = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="INSERT">INSERT (Nouveau)</SelectItem>
-                      <SelectItem value="SAVE" disabled="true">SAVE (Créer/Modifier)</SelectItem>
-                      <SelectItem value="UPDATE" disabled="true">UPDATE (Modifier uniquement)</SelectItem>
+                      <SelectItem value="SAVE" disabled={true}>SAVE (Créer/Modifier)</SelectItem>
+                      <SelectItem value="UPDATE" disabled={true}>UPDATE (Modifier uniquement)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -723,8 +723,8 @@ const AddressManager = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="INSERT">INSERT (Nouveau)</SelectItem>
-                      <SelectItem value="SAVE" disabled="true">SAVE (Créer/Modifier)</SelectItem>
-                      <SelectItem value="UPDATE" disabled="true">UPDATE (Modifier uniquement)</SelectItem>
+                      <SelectItem value="SAVE" disabled={true}>SAVE (Créer/Modifier)</SelectItem>
+                      <SelectItem value="UPDATE" disabled={true}>UPDATE (Modifier uniquement)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -15,7 +15,7 @@ import { transformData, createExcelFile, downloadExcelFile, generateSummary, Sum
 import FileUpload from "@/components/FileUpload";
 import TransformationSummary from "@/components/TransformationSummary";
 import { Separator } from '@/components/ui/separator';
-import { Download, Image, File } from 'lucide-react';
+import { Download, Image, File, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Index = () => {
@@ -154,11 +154,17 @@ const Index = () => {
           <p className="mt-2 text-lg text-gray-600">
             Convertissez vos données Excel au format Abacus en quelques clics
           </p>
-          <div className="mt-4">
+          <div className="mt-4 flex space-x-4 justify-center">
             <Link to="/address-manager">
               <Button variant="outline" className="flex items-center">
                 <File className="mr-2 h-4 w-4" />
                 Accéder à la Gestion des Adresses
+              </Button>
+            </Link>
+            <Link to="/camt-converter">
+              <Button variant="outline" className="flex items-center">
+                <FileText className="mr-2 h-4 w-4" />
+                Convertisseur CAMT vers Excel
               </Button>
             </Link>
           </div>

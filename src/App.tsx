@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import Index from "./pages/Index";
 import AddressManager from "./pages/AddressManager";
+import CamtConverter from "./pages/CamtConverter";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,9 @@ const App = () => (
                   <Link to="/address-manager" className="text-gray-600 hover:text-blue-600">
                     Gestion des Adresses
                   </Link>
+                  <Link to="/camt-converter" className="text-gray-600 hover:text-blue-600">
+                    Convertisseur CAMT
+                  </Link>
                 </div>
               </div>
             </div>
@@ -35,6 +39,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/address-manager" element={<AddressManager />} />
+            <Route path="/camt-converter" element={<CamtConverter />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           
