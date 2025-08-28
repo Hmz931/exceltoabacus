@@ -486,60 +486,128 @@ const AddressManager = () => {
         const data: any[] = [];
         const transactions = xmlDoc.getElementsByTagName('Transaction');
         
+        // Vérifier d'abord s'il y a des fournisseurs
+        let hasSuppliers = false;
+        let hasCustomers = false;
+        
         for (let i = 0; i < transactions.length; i++) {
-          const supplier = transactions[i].getElementsByTagName('Supplier')[0];
-          if (!supplier) continue;
-
-          const addressData = supplier.getElementsByTagName('AddressData')[0];
-          let name = '', codeName = '', line1 = '', houseNumber = '', zipCode = '', city = '',
-              country = '', phone1 = '', website = '', email = '', taxIdSwitzerland = '';
-          
-          if (addressData) {
-            name = addressData.getElementsByTagName('Name')[0]?.textContent || '';
-            codeName = addressData.getElementsByTagName('CodeName')[0]?.textContent || '';
-            line1 = addressData.getElementsByTagName('Line1')[0]?.textContent || '';
-            houseNumber = addressData.getElementsByTagName('HouseNumber')[0]?.textContent || '';
-            zipCode = addressData.getElementsByTagName('ZIP')[0]?.textContent || '';
-            city = addressData.getElementsByTagName('City')[0]?.textContent || '';
-            country = addressData.getElementsByTagName('Country')[0]?.textContent || '';
-            phone1 = addressData.getElementsByTagName('Phone1')[0]?.textContent || '';
-            website = addressData.getElementsByTagName('Website')[0]?.textContent || '';
-            email = addressData.getElementsByTagName('Email')[0]?.textContent || '';
-            taxIdSwitzerland = addressData.getElementsByTagName('TaxIDSwitzerland')[0]?.textContent || '';
+          if (transactions[i].getElementsByTagName('Supplier')[0]) {
+            hasSuppliers = true;
+            break;
           }
-
-          const ibans: string[] = [];
-          const beneficiaryAccounts = supplier.getElementsByTagName('BeneficiaryAccount');
-          for (let j = 0; j < beneficiaryAccounts.length; j++) {
-            const iban = beneficiaryAccounts[j].getElementsByTagName('BeneficiaryAccountNumber')[0]?.textContent || '';
-            if (iban && iban.length === 21) ibans.push(iban);
+          if (transactions[i].getElementsByTagName('Customer')[0]) {
+            hasCustomers = true;
+            break;
           }
-          const ibansText = ibans.join('\n');
-
-          data.push({
-            Nom: name,
-            'Ligne supplémentaire': '',
-            Adresse: line1,
-            Numero: houseNumber,
-            'Code postal': zipCode,
-            Ville: city,
-            Pays: country,
-            'Téléphone 1': phone1,
-            WWW: website,
-            'E-mail': email,
-            'N° TVA': taxIdSwitzerland,
-            IBAN: ibansText
-          });
         }
 
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Fournisseurs');
-        XLSX.writeFile(wb, 'Adresses_Fournisseurs_output.xlsx');
+        if (hasSuppliers) {
+          // Traitement des fournisseurs
+          for (let i = 0; i < transactions.length; i++) {
+            const supplier = transactions[i].getElementsByTagName('Supplier')[0];
+            if (!supplier) continue;
+
+            const addressData = supplier.getElementsByTagName('AddressData')[0];
+            let name = '', codeName = '', line1 = '', houseNumber = '', zipCode = '', city = '',
+                country = '', phone1 = '', website = '', email = '', taxIdSwitzerland = '';
+            
+            if (addressData) {
+              name = addressData.getElementsByTagName('Name')[0]?.textContent || '';
+              codeName = addressData.getElementsByTagName('CodeName')[0]?.textContent || '';
+              line1 = addressData.getElementsByTagName('Line1')[0]?.textContent || '';
+              houseNumber = addressData.getElementsByTagName('HouseNumber')[0]?.textContent || '';
+              zipCode = addressData.getElementsByTagName('ZIP')[0]?.textContent || '';
+              city = addressData.getElementsByTagName('City')[0]?.textContent || '';
+              country = addressData.getElementsByTagName('Country')[0]?.textContent || '';
+              phone1 = addressData.getElementsByTagName('Phone1')[0]?.textContent || '';
+              website = addressData.getElementsByTagName('Website')[0]?.textContent || '';
+              email = addressData.getElementsByTagName('Email')[0]?.textContent || '';
+              taxIdSwitzerland = addressData.getElementsByTagName('TaxIDSwitzerland')[0]?.textContent || '';
+            }
+
+            const ibans: string[] = [];
+            const beneficiaryAccounts = supplier.getElementsByTagName('BeneficiaryAccount');
+            for (let j = 0; j < beneficiaryAccounts.length; j++) {
+              const iban = beneficiaryAccounts[j].getElementsByTagName('BeneficiaryAccountNumber')[0]?.textContent || '';
+              if (iban && iban.length === 21) ibans.push(iban);
+            }
+            const ibansText = ibans.join('\n');
+
+            data.push({
+              Nom: name,
+              'Ligne supplémentaire': '',
+              Adresse: line1,
+              Numero: houseNumber,
+              'Code postal': zipCode,
+              Ville: city,
+              Pays: country,
+              'Téléphone 1': phone1,
+              WWW: website,
+              'E-mail': email,
+              'N° TVA': taxIdSwitzerland,
+              IBAN: ibansText
+            });
+          }
+
+          const ws = XLSX.utils.json_to_sheet(data);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, 'Fournisseurs');
+          XLSX.writeFile(wb, 'Adresses_Fournisseurs_output.xlsx');
+
+        } else if (hasCustomers) {
+          // Traitement des clients
+          for (let i = 0; i < transactions.length; i++) {
+            const customer = transactions[i].getElementsByTagName('Customer')[0];
+            if (!customer) continue;
+
+            const addressData = customer.getElementsByTagName('AddressData')[0];
+            let customerNumber = '', name = '', firstName = '', street = '', city = '', zip = '', 
+                country = '', email = '', mobile = '';
+            
+            if (customer) {
+              customerNumber = customer.getElementsByTagName('CustomerNumber')[0]?.textContent || '';
+            }
+            
+            if (addressData) {
+              name = addressData.getElementsByTagName('Name')[0]?.textContent || '';
+              firstName = addressData.getElementsByTagName('FirstName')[0]?.textContent || '';
+              street = addressData.getElementsByTagName('Line1')[0]?.textContent || '';
+              city = addressData.getElementsByTagName('City')[0]?.textContent || '';
+              zip = addressData.getElementsByTagName('ZIP')[0]?.textContent || '';
+              country = addressData.getElementsByTagName('Country')[0]?.textContent || '';
+              email = addressData.getElementsByTagName('Email')[0]?.textContent || '';
+              mobile = addressData.getElementsByTagName('Mobile')[0]?.textContent || '';
+            }
+
+            data.push({
+              'Numéro client': customerNumber,
+              'Nom': name,
+              'Prénom': firstName,
+              'Adresse': street,
+              'Ville': city,
+              'Code Postal': zip,
+              'Pays': country,
+              'Email': email,
+              'Mobile': mobile
+            });
+          }
+
+          const ws = XLSX.utils.json_to_sheet(data);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, 'Clients');
+          XLSX.writeFile(wb, 'Adresses_Clients_output.xlsx');
+        } else {
+          toast({
+            title: "Erreur",
+            description: "Aucune donnée de fournisseur ou client trouvée dans le fichier XML.",
+            variant: "destructive",
+          });
+          return;
+        }
 
         toast({
           title: "Excel généré",
-          description: "Le fichier Excel a été généré avec succès.",
+          description: `Le fichier Excel ${hasSuppliers ? 'des fournisseurs' : 'des clients'} a été généré avec succès.`,
         });
       } catch (error) {
         toast({
