@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import Index from "./pages/Index";
 import AddressManager from "./pages/AddressManager";
 import CamtConverter from "./pages/CamtConverter";
+import EntryAnalysis from "./pages/EntryAnalysis";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,9 @@ const App = () => (
                   <Link to="/camt-converter" className="text-gray-600 hover:text-blue-600">
                     Convertisseur CAMT
                   </Link>
+                  <Link to="/entry-analysis" className="text-gray-600 hover:text-blue-600">
+                    Analyse Écritures
+                  </Link>
                 </div>
               </div>
             </div>
@@ -40,6 +44,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/address-manager" element={<AddressManager />} />
             <Route path="/camt-converter" element={<CamtConverter />} />
+            <Route path="/entry-analysis" element={<EntryAnalysis />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           
