@@ -82,7 +82,9 @@ const EntryAnalysis = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [periodFilter, setPeriodFilter] = useState<PeriodType>("quarter");
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [groupByCategory, setGroupByCategory] = useState(false);
+  const [comparativeGroupByCategory, setComparativeGroupByCategory] = useState(false);
   const { toast } = useToast();
 
   const parseDate = (dateValue: any): Date | null => {
@@ -190,8 +192,8 @@ const EntryAnalysis = () => {
     return data;
   }, [entries]);
 
-  // Données pour le graphique et tableau comparatif
-  const chartData = useMemo(() => {
+  // Données pour le graphique et tableau comparatif (par module)
+  const chartDataByModule = useMemo(() => {
     const getPeriodKey = (date: Date): string => {
       const year = date.getFullYear();
       const month = date.getMonth();
@@ -222,13 +224,54 @@ const EntryAnalysis = () => {
       data[period][entry.module]++;
     });
 
-    // Convertir en format pour Recharts
     const sortedPeriods = Object.keys(data).sort();
     return sortedPeriods.map((period) => ({
       period,
       ...data[period],
     }));
   }, [entries, periodFilter]);
+
+  // Données pour le graphique et tableau comparatif (par catégorie)
+  const chartDataByCategory = useMemo(() => {
+    const getPeriodKey = (date: Date): string => {
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      
+      switch (periodFilter) {
+        case "day":
+          return `${year} - ${(month + 1).toString().padStart(2, "0")}/${date.getDate().toString().padStart(2, "0")}`;
+        case "month":
+          return `${year} - ${MONTH_NAMES[month]}`;
+        case "quarter":
+          return `${year} - ${QUARTER_NAMES[Math.floor(month / 3)]}`;
+        case "semester":
+          return `${year} - ${SEMESTER_NAMES[Math.floor(month / 6)]}`;
+        case "year":
+          return `${year}`;
+        default:
+          return `${year} - ${QUARTER_NAMES[Math.floor(month / 3)]}`;
+      }
+    };
+
+    const data: { [period: string]: { [category: string]: number } } = {};
+    
+    entries.forEach((entry) => {
+      const period = getPeriodKey(entry.date);
+      const category = getModuleCategory(entry.module);
+      
+      if (!data[period]) data[period] = {};
+      if (!data[period][category]) data[period][category] = 0;
+      data[period][category]++;
+    });
+
+    const sortedPeriods = Object.keys(data).sort();
+    return sortedPeriods.map((period) => ({
+      period,
+      ...data[period],
+    }));
+  }, [entries, periodFilter]);
+
+  const chartData = comparativeGroupByCategory ? chartDataByCategory : chartDataByModule;
 
   const toggleModule = (module: string) => {
     setSelectedModules((prev) =>
@@ -351,9 +394,11 @@ const EntryAnalysis = () => {
 
   const exportToPDF = () => {
     // Create printable HTML content
-    let htmlContent = `
+    const htmlContent = `
+      <!DOCTYPE html>
       <html>
       <head>
+        <meta charset="UTF-8">
         <title>Analyse des Écritures</title>
         <style>
           body { font-family: Arial, sans-serif; padding: 20px; }
@@ -367,65 +412,78 @@ const EntryAnalysis = () => {
           .legend { margin-top: 40px; }
           .legend td { text-align: left; }
           .info { background-color: #fef3c7; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+          @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          }
         </style>
       </head>
       <body>
         <h1>Analyse des Écritures Comptables</h1>
         <p class="info"><strong>Source:</strong> Export Abacus F5534</p>
+        ${years.map((year) => {
+          const displayCols = groupByCategory ? categories : modules;
+          let tableContent = `<h2>Année ${year}</h2><table><tr><th>Mois</th>`;
+          displayCols.forEach((col) => {
+            tableContent += `<th>${groupByCategory ? col : col}</th>`;
+          });
+          tableContent += `<th>Total</th></tr>`;
+          
+          MONTH_NAMES.forEach((month) => {
+            const monthTotal = groupByCategory ? getCategoryMonthTotal(year, month) : getYearMonthTotal(year, month);
+            if (monthTotal === 0) return;
+            
+            tableContent += `<tr><td>${month}</td>`;
+            displayCols.forEach((col) => {
+              const val = groupByCategory 
+                ? (categoryData[year]?.[month]?.[col] || "")
+                : (mainAnalysisData[year]?.[month]?.[col] || "");
+              tableContent += `<td>${val}</td>`;
+            });
+            tableContent += `<td><strong>${monthTotal}</strong></td></tr>`;
+          });
+          
+          tableContent += `<tr class="total-row"><td>Total ${year}</td>`;
+          displayCols.forEach((col) => {
+            const val = groupByCategory 
+              ? getCategoryCategoryTotal(year, col)
+              : getYearModuleTotal(year, col);
+            tableContent += `<td>${val}</td>`;
+          });
+          tableContent += `<td>${getYearTotal(year)}</td></tr></table>`;
+          return tableContent;
+        }).join('')}
+        <div class="legend"><h2>Légende des Modules</h2><table>
+          <tr><th>Code</th><th>Description</th><th>Catégorie</th></tr>
+          ${modules.map((module) => `<tr><td>${module}</td><td>${getModuleLabel(module)}</td><td>${getModuleCategory(module)}</td></tr>`).join('')}
+        </table></div>
+      </body>
+      </html>
     `;
 
-    const displayCols = groupByCategory ? categories : modules;
-
-    years.forEach((year) => {
-      htmlContent += `<h2>Année ${year}</h2><table><tr><th>Mois</th>`;
-      displayCols.forEach((col) => {
-        htmlContent += `<th>${groupByCategory ? col : `${col}`}</th>`;
-      });
-      htmlContent += `<th>Total</th></tr>`;
-      
-      MONTH_NAMES.forEach((month) => {
-        const monthTotal = groupByCategory ? getCategoryMonthTotal(year, month) : getYearMonthTotal(year, month);
-        if (monthTotal === 0) return;
-        
-        htmlContent += `<tr><td>${month}</td>`;
-        displayCols.forEach((col) => {
-          const val = groupByCategory 
-            ? (categoryData[year]?.[month]?.[col] || "")
-            : (mainAnalysisData[year]?.[month]?.[col] || "");
-          htmlContent += `<td>${val}</td>`;
-        });
-        htmlContent += `<td><strong>${monthTotal}</strong></td></tr>`;
-      });
-      
-      htmlContent += `<tr class="total-row"><td>Total ${year}</td>`;
-      displayCols.forEach((col) => {
-        const val = groupByCategory 
-          ? getCategoryCategoryTotal(year, col)
-          : getYearModuleTotal(year, col);
-        htmlContent += `<td>${val}</td>`;
-      });
-      htmlContent += `<td>${getYearTotal(year)}</td></tr></table>`;
-    });
-
-    // Legend
-    htmlContent += `<div class="legend"><h2>Légende des Modules</h2><table>
-      <tr><th>Code</th><th>Description</th><th>Catégorie</th></tr>`;
-    modules.forEach((module) => {
-      htmlContent += `<tr><td>${module}</td><td>${getModuleLabel(module)}</td><td>${getModuleCategory(module)}</td></tr>`;
-    });
-    htmlContent += `</table></div></body></html>`;
-
-    const printWindow = window.open('', '_blank');
+    // Create blob and open in new window
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const printWindow = window.open(url, '_blank');
+    
     if (printWindow) {
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-      printWindow.print();
+      printWindow.onload = () => {
+        printWindow.print();
+        URL.revokeObjectURL(url);
+      };
     }
 
     toast({
       title: "Export PDF",
       description: "La fenêtre d'impression s'est ouverte",
     });
+  };
+
+  const toggleCategory = (category: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category]
+    );
   };
 
   return (
@@ -610,10 +668,10 @@ const EntryAnalysis = () => {
                     <div>
                       <CardTitle className="flex items-center gap-2">
                         <TrendingUp className="h-5 w-5" />
-                        Écritures par Période et Module
+                        Écritures par Période et {comparativeGroupByCategory ? "Catégorie" : "Module"}
                       </CardTitle>
                       <CardDescription>
-                        Sélectionnez les modules à afficher pour une comparaison détaillée
+                        Sélectionnez les {comparativeGroupByCategory ? "catégories" : "modules"} à afficher pour une comparaison détaillée
                       </CardDescription>
                     </div>
                     <Select value={periodFilter} onValueChange={(v) => setPeriodFilter(v as PeriodType)}>
@@ -631,29 +689,73 @@ const EntryAnalysis = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Sélection des modules */}
+                  {/* Toggle for category grouping in comparative tab */}
+                  <div className="flex items-center gap-4 p-4 bg-white rounded-lg border">
+                    <span className="text-sm font-medium">Affichage:</span>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="comparativeGroupByCategory"
+                        checked={comparativeGroupByCategory}
+                        onCheckedChange={(checked) => {
+                          setComparativeGroupByCategory(checked === true);
+                          if (checked) {
+                            setSelectedCategories(categories);
+                          } else {
+                            setSelectedModules(modules);
+                          }
+                        }}
+                      />
+                      <label htmlFor="comparativeGroupByCategory" className="text-sm cursor-pointer">
+                        Regrouper par catégorie
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Sélection des modules ou catégories */}
                   <div className="flex flex-wrap gap-4 p-4 bg-gray-50 rounded-lg">
-                    {modules.map((module, index) => (
-                      <div key={module} className="flex items-center gap-2">
-                        <Checkbox
-                          id={`module-${module}`}
-                          checked={selectedModules.includes(module)}
-                          onCheckedChange={() => toggleModule(module)}
-                        />
-                        <label
-                          htmlFor={`module-${module}`}
-                          className="flex items-center gap-2 text-sm cursor-pointer"
-                          title={getModuleLabel(module)}
-                        >
-                          <span
-                            className="w-3 h-3 rounded"
-                            style={{ backgroundColor: getModuleColor(module, index) }}
+                    {comparativeGroupByCategory ? (
+                      categories.map((category, index) => (
+                        <div key={category} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`category-${category}`}
+                            checked={selectedCategories.includes(category)}
+                            onCheckedChange={() => toggleCategory(category)}
                           />
-                          <span className="font-mono">{module}</span>
-                          <span className="text-gray-500 text-xs hidden sm:inline">({getModuleLabel(module)})</span>
-                        </label>
-                      </div>
-                    ))}
+                          <label
+                            htmlFor={`category-${category}`}
+                            className="flex items-center gap-2 text-sm cursor-pointer"
+                          >
+                            <span
+                              className="w-3 h-3 rounded"
+                              style={{ backgroundColor: getModuleColor(category, index) }}
+                            />
+                            <span>{category}</span>
+                          </label>
+                        </div>
+                      ))
+                    ) : (
+                      modules.map((module, index) => (
+                        <div key={module} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`module-${module}`}
+                            checked={selectedModules.includes(module)}
+                            onCheckedChange={() => toggleModule(module)}
+                          />
+                          <label
+                            htmlFor={`module-${module}`}
+                            className="flex items-center gap-2 text-sm cursor-pointer"
+                            title={getModuleLabel(module)}
+                          >
+                            <span
+                              className="w-3 h-3 rounded"
+                              style={{ backgroundColor: getModuleColor(module, index) }}
+                            />
+                            <span className="font-mono">{module}</span>
+                            <span className="text-gray-500 text-xs hidden sm:inline">({getModuleLabel(module)})</span>
+                          </label>
+                        </div>
+                      ))
+                    )}
                   </div>
 
                   {/* Graphique */}
@@ -678,15 +780,27 @@ const EntryAnalysis = () => {
                           }}
                         />
                         <Legend wrapperStyle={{ paddingTop: "20px" }} />
-                        {selectedModules.map((module, index) => (
-                          <Bar
-                            key={module}
-                            dataKey={module}
-                            name={module}
-                            fill={getModuleColor(module, modules.indexOf(module))}
-                            radius={[4, 4, 0, 0]}
-                          />
-                        ))}
+                        {comparativeGroupByCategory ? (
+                          selectedCategories.map((category, index) => (
+                            <Bar
+                              key={category}
+                              dataKey={category}
+                              name={category}
+                              fill={getModuleColor(category, index)}
+                              radius={[4, 4, 0, 0]}
+                            />
+                          ))
+                        ) : (
+                          selectedModules.map((module) => (
+                            <Bar
+                              key={module}
+                              dataKey={module}
+                              name={module}
+                              fill={getModuleColor(module, modules.indexOf(module))}
+                              radius={[4, 4, 0, 0]}
+                            />
+                          ))
+                        )}
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -697,9 +811,9 @@ const EntryAnalysis = () => {
                       <TableHeader>
                         <TableRow className="bg-purple-100">
                           <TableHead className="font-bold">Période</TableHead>
-                          {selectedModules.map((module) => (
-                            <TableHead key={module} className="text-center font-bold">
-                              {module}
+                          {(comparativeGroupByCategory ? selectedCategories : selectedModules).map((col) => (
+                            <TableHead key={col} className="text-center font-bold">
+                              {col}
                             </TableHead>
                           ))}
                           <TableHead className="text-center font-bold">Total</TableHead>
@@ -707,16 +821,17 @@ const EntryAnalysis = () => {
                       </TableHeader>
                       <TableBody>
                         {chartData.map((row, index) => {
-                          const total = selectedModules.reduce((sum, m) => sum + ((row as any)[m] || 0), 0);
+                          const displayCols = comparativeGroupByCategory ? selectedCategories : selectedModules;
+                          const total = displayCols.reduce((sum, col) => sum + ((row as any)[col] || 0), 0);
                           return (
                             <TableRow 
                               key={row.period}
                               className={index % 2 === 0 ? "bg-purple-50" : "bg-white"}
                             >
                               <TableCell className="font-medium">{row.period}</TableCell>
-                              {selectedModules.map((module) => (
-                                <TableCell key={module} className="text-center">
-                                  {(row as any)[module] || ""}
+                              {displayCols.map((col) => (
+                                <TableCell key={col} className="text-center">
+                                  {(row as any)[col] || ""}
                                 </TableCell>
                               ))}
                               <TableCell className="text-center font-semibold">{total}</TableCell>
@@ -725,15 +840,16 @@ const EntryAnalysis = () => {
                         })}
                         <TableRow className="bg-purple-200 font-bold">
                           <TableCell>Total</TableCell>
-                          {selectedModules.map((module) => (
-                            <TableCell key={module} className="text-center">
-                              {chartData.reduce((sum, row) => sum + ((row as any)[module] || 0), 0)}
+                          {(comparativeGroupByCategory ? selectedCategories : selectedModules).map((col) => (
+                            <TableCell key={col} className="text-center">
+                              {chartData.reduce((sum, row) => sum + ((row as any)[col] || 0), 0)}
                             </TableCell>
                           ))}
                           <TableCell className="text-center">
-                            {chartData.reduce((sum, row) => 
-                              sum + selectedModules.reduce((s, m) => s + ((row as any)[m] || 0), 0), 0
-                            )}
+                            {chartData.reduce((sum, row) => {
+                              const displayCols = comparativeGroupByCategory ? selectedCategories : selectedModules;
+                              return sum + displayCols.reduce((s, col) => s + ((row as any)[col] || 0), 0);
+                            }, 0)}
                           </TableCell>
                         </TableRow>
                       </TableBody>
