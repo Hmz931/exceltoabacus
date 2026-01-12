@@ -500,12 +500,71 @@ const EntryAnalysis = () => {
           </p>
         </div>
 
-        <Alert className="mb-6 bg-amber-50 border-amber-200">
-          <Info className="h-4 w-4 text-amber-600" />
-          <AlertDescription className="text-amber-800">
-            <strong>Format requis:</strong> Le fichier d'entrée doit être un export Excel extrait d'Abacus à partir du menu <strong>F5534</strong>.
-          </AlertDescription>
-        </Alert>
+        {/* Guide Section - Always visible before file upload */}
+        {entries.length === 0 && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-purple-600" />
+                Guide d'exportation depuis Abacus F5534
+              </CardTitle>
+              <CardDescription>
+                Avant d'importer votre fichier, assurez-vous qu'il a été extrait correctement depuis Abacus
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <h3 className="font-semibold text-amber-800 mb-2">Étapes d'exportation</h3>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-amber-900">
+                  <li><strong>Ouvrir F5534</strong> - Accéder au menu Import/Export des écritures dans Abacus</li>
+                  <li><strong>Choisir le format Excel</strong> - Sélectionner "Excel" comme type d'exportation</li>
+                  <li><strong>Définir l'emplacement</strong> - Choisir où enregistrer le fichier d'exportation</li>
+                  <li><strong>Sélectionner l'exercice</strong> - Choisir l'exercice comptable à analyser</li>
+                  <li><strong>Décocher "Numéro ÉCR."</strong> - Décocher cette option pour exporter toutes les écritures</li>
+                  <li><strong>Exporter</strong> - Lancer l'exportation</li>
+                </ol>
+              </div>
+
+              <div className="border rounded-lg overflow-hidden">
+                <img 
+                  src={abacusExportGuide} 
+                  alt="Guide d'exportation Abacus F5534" 
+                  className="w-full h-auto"
+                />
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <Card className="bg-purple-50 border-purple-200">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm text-purple-800">Légende des Modules</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-xs space-y-1">
+                    {Object.entries(MODULE_DESCRIPTIONS).map(([code, desc]) => (
+                      <div key={code} className="flex gap-2">
+                        <span className="font-mono font-bold w-6">{code || '""'}</span>
+                        <span className="text-gray-700">{desc}</span>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-blue-50 border-blue-200">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm text-blue-800">Catégories</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-xs space-y-1">
+                    {Object.entries(MODULE_CATEGORIES).map(([category, codes]) => (
+                      <div key={category} className="flex gap-2">
+                        <span className="font-semibold">{category}:</span>
+                        <span className="text-gray-700 font-mono">{codes.join(", ")}</span>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="mb-8">
           <CardHeader>
@@ -547,7 +606,7 @@ const EntryAnalysis = () => {
 
         {entries.length > 0 && (
           <Tabs defaultValue="main" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-3 max-w-lg">
+            <TabsList className="grid w-full grid-cols-2 max-w-md">
               <TabsTrigger value="main" className="flex items-center gap-2">
                 <FileSpreadsheet className="h-4 w-4" />
                 Par Année
@@ -555,10 +614,6 @@ const EntryAnalysis = () => {
               <TabsTrigger value="comparative" className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
                 Comparatif
-              </TabsTrigger>
-              <TabsTrigger value="guide" className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4" />
-                Guide
               </TabsTrigger>
             </TabsList>
 
@@ -859,72 +914,6 @@ const EntryAnalysis = () => {
                         </TableRow>
                       </TableBody>
                     </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Onglet Guide */}
-            <TabsContent value="guide" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BookOpen className="h-5 w-5" />
-                    Guide d'exportation depuis Abacus F5534
-                  </CardTitle>
-                  <CardDescription>
-                    Comment extraire le fichier Excel depuis Abacus pour l'analyse
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                    <h3 className="font-semibold text-amber-800 mb-2">Étapes d'exportation</h3>
-                    <ol className="list-decimal list-inside space-y-2 text-sm text-amber-900">
-                      <li><strong>Ouvrir F5534</strong> - Accéder au menu Import/Export des écritures dans Abacus</li>
-                      <li><strong>Choisir le format Excel</strong> - Sélectionner "Excel" comme type d'exportation</li>
-                      <li><strong>Définir l'emplacement</strong> - Choisir où enregistrer le fichier d'exportation</li>
-                      <li><strong>Sélectionner l'exercice</strong> - Choisir l'exercice comptable à analyser</li>
-                      <li><strong>Décocher "Numéro ÉCR."</strong> - Décocher cette option pour exporter toutes les écritures</li>
-                      <li><strong>Exporter</strong> - Lancer l'exportation</li>
-                    </ol>
-                  </div>
-
-                  <div className="border rounded-lg overflow-hidden">
-                    <img 
-                      src={abacusExportGuide} 
-                      alt="Guide d'exportation Abacus F5534" 
-                      className="w-full h-auto"
-                    />
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <Card className="bg-purple-50 border-purple-200">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-purple-800">Légende des Modules</CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-xs space-y-1">
-                        {Object.entries(MODULE_DESCRIPTIONS).map(([code, desc]) => (
-                          <div key={code} className="flex gap-2">
-                            <span className="font-mono font-bold w-6">{code || '""'}</span>
-                            <span className="text-gray-700">{desc}</span>
-                          </div>
-                        ))}
-                      </CardContent>
-                    </Card>
-
-                    <Card className="bg-blue-50 border-blue-200">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm text-blue-800">Catégories</CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-xs space-y-1">
-                        {Object.entries(MODULE_CATEGORIES).map(([category, codes]) => (
-                          <div key={category} className="flex gap-2">
-                            <span className="font-semibold">{category}:</span>
-                            <span className="text-gray-700 font-mono">{codes.join(", ")}</span>
-                          </div>
-                        ))}
-                      </CardContent>
-                    </Card>
                   </div>
                 </CardContent>
               </Card>
