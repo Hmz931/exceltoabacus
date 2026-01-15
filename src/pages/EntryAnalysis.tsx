@@ -86,6 +86,7 @@ const EntryAnalysis = () => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [groupByCategory, setGroupByCategory] = useState(false);
   const [comparativeGroupByCategory, setComparativeGroupByCategory] = useState(false);
+  const [reversedEntriesCount, setReversedEntriesCount] = useState(0);
   const { toast } = useToast();
 
   const parseDate = (dateValue: any): Date | null => {
@@ -129,13 +130,22 @@ const EntryAnalysis = () => {
 
       const dateColIndex = 2;
       const moduleColIndex = 17;
+      const collectiveIdentifierColIndex = 15; // Column P - Identificateur écriture collective
       const parsedEntries: EntryData[] = [];
       const moduleSet = new Set<string>();
+      let reversedCount = 0;
 
       for (let i = 1; i < jsonData.length; i++) {
         const row = jsonData[i];
         const dateValue = row[dateColIndex];
         const moduleValue = row[moduleColIndex];
+        const collectiveIdentifier = row[collectiveIdentifierColIndex];
+
+        // Skip reversed entries (extournées) marked with "#"
+        if (collectiveIdentifier && String(collectiveIdentifier).trim() === "#") {
+          reversedCount++;
+          continue;
+        }
 
         const date = parseDate(dateValue);
         if (!date) continue;
@@ -147,9 +157,10 @@ const EntryAnalysis = () => {
 
       setEntries(parsedEntries);
       setSelectedModules(Array.from(moduleSet).sort());
+      setReversedEntriesCount(reversedCount);
       toast({
         title: "Analyse terminée",
-        description: `${parsedEntries.length} écritures chargées`,
+        description: `${parsedEntries.length} écritures chargées${reversedCount > 0 ? ` (${reversedCount} extournées exclues)` : ""}`,
       });
     } catch (error) {
       console.error("Erreur lors de l'analyse:", error);
@@ -377,6 +388,17 @@ const EntryAnalysis = () => {
       XLSX.utils.book_append_sheet(wb, ws, `Année ${year}`);
     });
 
+    // Summary sheet
+    const summaryData: any[][] = [
+      ["Résumé de l'analyse"],
+      [""],
+      ["Écritures analysées", entries.length],
+      ["Écritures extournées (exclues)", reversedEntriesCount],
+      ["Total écritures dans le fichier", entries.length + reversedEntriesCount],
+    ];
+    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, "Résumé");
+
     // Module legend sheet
     const legendData: any[][] = [["Code", "Description", "Catégorie"]];
     modules.forEach((module) => {
@@ -420,7 +442,10 @@ const EntryAnalysis = () => {
       </head>
       <body>
         <h1>Analyse des Écritures Comptables</h1>
-        <p class="info"><strong>Source:</strong> Export Abacus F5534</p>
+        <div class="info">
+          <p><strong>Source:</strong> Export Abacus F5534</p>
+          <p><strong>Écritures analysées:</strong> ${entries.length.toLocaleString()}${reversedEntriesCount > 0 ? ` | <strong>Écritures extournées (exclues):</strong> ${reversedEntriesCount.toLocaleString()}` : ''}</p>
+        </div>
         ${years.map((year) => {
           const displayCols = groupByCategory ? categories : modules;
           let tableContent = `<h2>Année ${year}</h2><table><tr><th>Mois</th>`;
@@ -605,8 +630,22 @@ const EntryAnalysis = () => {
         </Card>
 
         {entries.length > 0 && (
-          <Tabs defaultValue="main" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <>
+            {/* Summary with reversed entries info */}
+            <Alert className="bg-blue-50 border-blue-200">
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                <span className="font-medium">{entries.length.toLocaleString()}</span> écritures analysées
+                {reversedEntriesCount > 0 && (
+                  <span className="ml-2 text-amber-700">
+                    ({reversedEntriesCount.toLocaleString()} écritures extournées exclues de l'analyse)
+                  </span>
+                )}
+              </AlertDescription>
+            </Alert>
+
+            <Tabs defaultValue="main" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-2 max-w-md">
               <TabsTrigger value="main" className="flex items-center gap-2">
                 <FileSpreadsheet className="h-4 w-4" />
                 Par Année
@@ -919,6 +958,7 @@ const EntryAnalysis = () => {
               </Card>
             </TabsContent>
           </Tabs>
+          </>
         )}
       </div>
     </div>
