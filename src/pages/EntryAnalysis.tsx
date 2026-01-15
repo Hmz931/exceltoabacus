@@ -32,6 +32,8 @@ const USER_MAPPING: Record<string, string> = {
   "186": "Helmi Jouini",
   "200": "Igor Maia",
   "162": "Mahdi Cherif",
+  "487": "Salem Ben-farhat",
+  "318": "Julien Simmonet",
 };
 
 type PeriodType = "day" | "month" | "quarter" | "semester" | "year";
