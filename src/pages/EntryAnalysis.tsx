@@ -24,6 +24,7 @@ const USER_MAPPING: Record<string, string> = {
   "315": "Lamber FALQUET",
   "23": "Hamza Bouguerra",
   "17": "getyoozuneo_ws",
+  "9": "Kevin Nahmias",
 };
 
 type PeriodType = "day" | "month" | "quarter" | "semester" | "year";
