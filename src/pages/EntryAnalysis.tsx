@@ -42,6 +42,7 @@ const USER_MAPPING: Record<string, string> = {
   "111": "Mike Cottier",
   "190": "Yohanna Channel",
   "20": "Sameh Ben Amor",
+  "369": "Rodolphe Droin",
   
 };
 
