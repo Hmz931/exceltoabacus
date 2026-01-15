@@ -25,6 +25,10 @@ const USER_MAPPING: Record<string, string> = {
   "23": "Hamza Bouguerra",
   "17": "getyoozuneo_ws",
   "9": "Kevin Nahmias",
+  "417": "Imène Ben Rabeb",
+  "33": "Aida Juini",
+  "416": "Jolan Labhard",
+  
 };
 
 type PeriodType = "day" | "month" | "quarter" | "semester" | "year";
