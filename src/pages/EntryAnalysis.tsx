@@ -16,7 +16,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 interface EntryData {
   date: Date;
   module: string;
+  modificationUser?: string;
 }
+
+// User mapping for XML ModificationUser field
+const USER_MAPPING: Record<string, string> = {
+  "315": "Lamber FALQUET",
+  "23": "Hamza Bouguerra",
+  "17": "getyoozuneo_ws",
+};
 
 type PeriodType = "day" | "month" | "quarter" | "semester" | "year";
 
@@ -87,6 +95,8 @@ const EntryAnalysis = () => {
   const [groupByCategory, setGroupByCategory] = useState(false);
   const [comparativeGroupByCategory, setComparativeGroupByCategory] = useState(false);
   const [reversedEntriesCount, setReversedEntriesCount] = useState(0);
+  const [userStats, setUserStats] = useState<Record<string, number>>({});
+  const [fileType, setFileType] = useState<"excel" | "xml" | null>(null);
   const { toast } = useToast();
 
   const parseDate = (dateValue: any): Date | null => {
@@ -111,6 +121,103 @@ const EntryAnalysis = () => {
     return null;
   };
 
+  // Parse XML file
+  const parseXmlFile = useCallback(async (file: File): Promise<{ entries: EntryData[], reversedCount: number, userCounts: Record<string, number> }> => {
+    const text = await file.text();
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(text, "text/xml");
+    
+    const parserError = xmlDoc.querySelector("parsererror");
+    if (parserError) {
+      throw new Error("Erreur de parsing XML: Le fichier n'est pas un XML valide");
+    }
+
+    const transactions = xmlDoc.querySelectorAll("Transaction");
+    const parsedEntries: EntryData[] = [];
+    let reversedCount = 0;
+    const userCounts: Record<string, number> = {};
+
+    transactions.forEach((transaction) => {
+      const collectiveInfo = transaction.querySelector("CollectiveInformation");
+      if (!collectiveInfo) return;
+
+      const typeElement = collectiveInfo.querySelector("Type");
+      const type = typeElement?.textContent?.trim() || "";
+
+      // Skip reversed entries (Type = "Reversal")
+      if (type === "Reversal") {
+        reversedCount++;
+        return;
+      }
+
+      const entryDateElement = collectiveInfo.querySelector("EntryDate");
+      const bookingSourceElement = collectiveInfo.querySelector("BookingSource");
+      const modificationUserElement = collectiveInfo.querySelector("ModificationUser");
+
+      const entryDateStr = entryDateElement?.textContent?.trim() || "";
+      const bookingSource = bookingSourceElement?.textContent?.trim() || "?";
+      const modificationUserId = modificationUserElement?.textContent?.trim() || "";
+
+      // Parse date (format: YYYY-MM-DD)
+      const date = parseDate(entryDateStr);
+      if (!date) return;
+
+      // Track user stats
+      if (modificationUserId) {
+        const userName = USER_MAPPING[modificationUserId] || `Utilisateur #${modificationUserId}`;
+        userCounts[userName] = (userCounts[userName] || 0) + 1;
+      }
+
+      parsedEntries.push({
+        date,
+        module: bookingSource,
+        modificationUser: modificationUserId,
+      });
+    });
+
+    return { entries: parsedEntries, reversedCount, userCounts };
+  }, []);
+
+  // Parse Excel file
+  const parseExcelFile = useCallback(async (file: File): Promise<{ entries: EntryData[], reversedCount: number }> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: "array" });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+    if (jsonData.length < 2) {
+      throw new Error("Le fichier est vide ou ne contient pas de données");
+    }
+
+    const dateColIndex = 2;
+    const moduleColIndex = 17;
+    const collectiveIdentifierColIndex = 15; // Column P - Identificateur écriture collective
+    const parsedEntries: EntryData[] = [];
+    let reversedCount = 0;
+
+    for (let i = 1; i < jsonData.length; i++) {
+      const row = jsonData[i];
+      const dateValue = row[dateColIndex];
+      const moduleValue = row[moduleColIndex];
+      const collectiveIdentifier = row[collectiveIdentifierColIndex];
+
+      // Skip reversed entries (extournées) marked with "#"
+      if (collectiveIdentifier && String(collectiveIdentifier).trim() === "#") {
+        reversedCount++;
+        continue;
+      }
+
+      const date = parseDate(dateValue);
+      if (!date) continue;
+
+      const module = moduleValue ? String(moduleValue).trim() : "?";
+      parsedEntries.push({ date, module });
+    }
+
+    return { entries: parsedEntries, reversedCount };
+  }, []);
+
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -118,46 +225,39 @@ const EntryAnalysis = () => {
     setIsProcessing(true);
 
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: "array" });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+      const fileName = file.name.toLowerCase();
+      const isXml = fileName.endsWith(".xml");
+      const isExcel = fileName.endsWith(".xlsx") || fileName.endsWith(".xls");
 
-      if (jsonData.length < 2) {
-        throw new Error("Le fichier est vide ou ne contient pas de données");
+      if (!isXml && !isExcel) {
+        throw new Error("Format de fichier non supporté. Utilisez un fichier Excel (.xlsx, .xls) ou XML (.xml)");
       }
 
-      const dateColIndex = 2;
-      const moduleColIndex = 17;
-      const collectiveIdentifierColIndex = 15; // Column P - Identificateur écriture collective
-      const parsedEntries: EntryData[] = [];
-      const moduleSet = new Set<string>();
+      let parsedEntries: EntryData[] = [];
       let reversedCount = 0;
+      let userCounts: Record<string, number> = {};
+      const moduleSet = new Set<string>();
 
-      for (let i = 1; i < jsonData.length; i++) {
-        const row = jsonData[i];
-        const dateValue = row[dateColIndex];
-        const moduleValue = row[moduleColIndex];
-        const collectiveIdentifier = row[collectiveIdentifierColIndex];
-
-        // Skip reversed entries (extournées) marked with "#"
-        if (collectiveIdentifier && String(collectiveIdentifier).trim() === "#") {
-          reversedCount++;
-          continue;
-        }
-
-        const date = parseDate(dateValue);
-        if (!date) continue;
-
-        const module = moduleValue ? String(moduleValue).trim() : "?";
-        parsedEntries.push({ date, module });
-        moduleSet.add(module);
+      if (isXml) {
+        const result = await parseXmlFile(file);
+        parsedEntries = result.entries;
+        reversedCount = result.reversedCount;
+        userCounts = result.userCounts;
+        setFileType("xml");
+      } else {
+        const result = await parseExcelFile(file);
+        parsedEntries = result.entries;
+        reversedCount = result.reversedCount;
+        setFileType("excel");
       }
+
+      parsedEntries.forEach(entry => moduleSet.add(entry.module));
 
       setEntries(parsedEntries);
       setSelectedModules(Array.from(moduleSet).sort());
       setReversedEntriesCount(reversedCount);
+      setUserStats(userCounts);
+      
       toast({
         title: "Analyse terminée",
         description: `${parsedEntries.length} écritures chargées${reversedCount > 0 ? ` (${reversedCount} extournées exclues)` : ""}`,
@@ -173,7 +273,7 @@ const EntryAnalysis = () => {
       setIsProcessing(false);
       event.target.value = "";
     }
-  }, [toast]);
+  }, [toast, parseXmlFile, parseExcelFile]);
 
   const { years, modules } = useMemo(() => {
     const yearSet = new Set<number>();
@@ -531,32 +631,69 @@ const EntryAnalysis = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-purple-600" />
-                Guide d'exportation depuis Abacus F5534
+                Guide d'importation des écritures
               </CardTitle>
               <CardDescription>
-                Avant d'importer votre fichier, assurez-vous qu'il a été extrait correctement depuis Abacus
+                Importez vos écritures au format Excel (F5534) ou XML (AbaConnect)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <h3 className="font-semibold text-amber-800 mb-2">Étapes d'exportation</h3>
-                <ol className="list-decimal list-inside space-y-2 text-sm text-amber-900">
-                  <li><strong>Ouvrir F5534</strong> - Accéder au menu Import/Export des écritures dans Abacus</li>
-                  <li><strong>Choisir le format Excel</strong> - Sélectionner "Excel" comme type d'exportation</li>
-                  <li><strong>Définir l'emplacement</strong> - Choisir où enregistrer le fichier d'exportation</li>
-                  <li><strong>Sélectionner l'exercice</strong> - Choisir l'exercice comptable à analyser</li>
-                  <li><strong>Décocher "Numéro ÉCR."</strong> - Décocher cette option pour exporter toutes les écritures</li>
-                  <li><strong>Exporter</strong> - Lancer l'exportation</li>
-                </ol>
-              </div>
+              {/* Format tabs */}
+              <Tabs defaultValue="excel" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 max-w-xs">
+                  <TabsTrigger value="excel">Format Excel</TabsTrigger>
+                  <TabsTrigger value="xml">Format XML</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="excel" className="space-y-4 mt-4">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <h3 className="font-semibold text-amber-800 mb-2">Étapes d'exportation Excel (F5534)</h3>
+                    <ol className="list-decimal list-inside space-y-2 text-sm text-amber-900">
+                      <li><strong>Ouvrir F5534</strong> - Accéder au menu Import/Export des écritures dans Abacus</li>
+                      <li><strong>Choisir le format Excel</strong> - Sélectionner "Excel" comme type d'exportation</li>
+                      <li><strong>Définir l'emplacement</strong> - Choisir où enregistrer le fichier d'exportation</li>
+                      <li><strong>Sélectionner l'exercice</strong> - Choisir l'exercice comptable à analyser</li>
+                      <li><strong>Décocher "Numéro ÉCR."</strong> - Décocher cette option pour exporter toutes les écritures</li>
+                      <li><strong>Exporter</strong> - Lancer l'exportation</li>
+                    </ol>
+                  </div>
 
-              <div className="border rounded-lg overflow-hidden">
-                <img 
-                  src={abacusExportGuide} 
-                  alt="Guide d'exportation Abacus F5534" 
-                  className="w-full h-auto"
-                />
-              </div>
+                  <div className="border rounded-lg overflow-hidden">
+                    <img 
+                      src={abacusExportGuide} 
+                      alt="Guide d'exportation Abacus F5534" 
+                      className="w-full h-auto"
+                    />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="xml" className="space-y-4 mt-4">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h3 className="font-semibold text-green-800 mb-2">Format XML (AbaConnect)</h3>
+                    <p className="text-sm text-green-900 mb-3">
+                      Le format XML offre des informations supplémentaires par rapport à Excel:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-green-900">
+                      <li><strong>&lt;EntryDate&gt;</strong> - Date d'écriture</li>
+                      <li><strong>&lt;BookingSource&gt;</strong> - Code module d'origine (K, D, F, etc.)</li>
+                      <li><strong>&lt;Type&gt;</strong> - Type d'écriture ("Normal" ou "Reversal" pour extournées)</li>
+                      <li><strong>&lt;ModificationUser&gt;</strong> - Identifiant du dernier utilisateur ayant modifié</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 className="font-semibold text-blue-800 mb-2">Utilisateurs connus</h3>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {Object.entries(USER_MAPPING).map(([id, name]) => (
+                        <div key={id} className="flex gap-2">
+                          <span className="font-mono text-blue-700">#{id}</span>
+                          <span className="text-gray-700">{name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
 
               <div className="grid md:grid-cols-2 gap-4">
                 <Card className="bg-purple-50 border-purple-200">
@@ -595,17 +732,17 @@ const EntryAnalysis = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" />
-              Charger un fichier Excel
+              Charger un fichier
             </CardTitle>
             <CardDescription>
-              Importez un fichier Excel contenant les écritures comptables (export F5534)
+              Importez un fichier Excel (.xlsx, .xls) ou XML (.xml) contenant les écritures comptables
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-center gap-4">
               <Input
                 type="file"
-                accept=".xlsx,.xls"
+                accept=".xlsx,.xls,.xml"
                 onChange={handleFileUpload}
                 disabled={isProcessing}
                 className="max-w-md"
@@ -632,17 +769,48 @@ const EntryAnalysis = () => {
         {entries.length > 0 && (
           <>
             {/* Summary with reversed entries info */}
-            <Alert className="bg-blue-50 border-blue-200">
+            <Alert className="bg-blue-50 border-blue-200 mb-4">
               <Info className="h-4 w-4" />
               <AlertDescription>
-                <span className="font-medium">{entries.length.toLocaleString()}</span> écritures analysées
-                {reversedEntriesCount > 0 && (
-                  <span className="ml-2 text-amber-700">
-                    ({reversedEntriesCount.toLocaleString()} écritures extournées exclues de l'analyse)
-                  </span>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{entries.length.toLocaleString()}</span> écritures analysées
+                  {reversedEntriesCount > 0 && (
+                    <span className="text-amber-700">
+                      ({reversedEntriesCount.toLocaleString()} extournées exclues)
+                    </span>
+                  )}
+                  {fileType && (
+                    <span className="bg-gray-200 text-gray-700 px-2 py-0.5 rounded text-xs font-mono">
+                      {fileType.toUpperCase()}
+                    </span>
+                  )}
+                </div>
               </AlertDescription>
             </Alert>
+
+            {/* User stats for XML files */}
+            {fileType === "xml" && Object.keys(userStats).length > 0 && (
+              <Card className="mb-4 bg-green-50 border-green-200">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-green-800 flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    Statistiques par Utilisateur (ModificationUser)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
+                    {Object.entries(userStats)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([userName, count]) => (
+                        <div key={userName} className="flex justify-between items-center bg-white p-2 rounded border">
+                          <span className="text-gray-700 truncate">{userName}</span>
+                          <span className="font-semibold text-green-700 ml-2">{count.toLocaleString()}</span>
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <Tabs defaultValue="main" className="space-y-4">
               <TabsList className="grid w-full grid-cols-2 max-w-md">
