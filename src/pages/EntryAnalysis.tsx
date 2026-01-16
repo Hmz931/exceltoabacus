@@ -813,103 +813,8 @@ const EntryAnalysis = () => {
               </AlertDescription>
             </Alert>
 
-            {/* User stats for XML files - Table format */}
-            {fileType === "xml" && Object.keys(userStats).length > 0 && (() => {
-              // Get all unique users and modules
-              const allUsers = Object.keys(userStats).sort((a, b) => {
-                // Sort by total count descending
-                const totalA = Object.values(userStats[a]).reduce((sum, c) => sum + c, 0);
-                const totalB = Object.values(userStats[b]).reduce((sum, c) => sum + c, 0);
-                return totalB - totalA;
-              });
-              const allModulesInStats = new Set<string>();
-              Object.values(userStats).forEach(moduleCounts => {
-                Object.keys(moduleCounts).forEach(m => allModulesInStats.add(m));
-              });
-              const sortedModules = Array.from(allModulesInStats).sort();
-
-              // Calculate totals
-              const userTotals: Record<string, number> = {};
-              const moduleTotals: Record<string, number> = {};
-              let grandTotal = 0;
-
-              allUsers.forEach(user => {
-                userTotals[user] = Object.values(userStats[user]).reduce((sum, c) => sum + c, 0);
-                grandTotal += userTotals[user];
-              });
-
-              sortedModules.forEach(mod => {
-                moduleTotals[mod] = allUsers.reduce((sum, user) => sum + (userStats[user][mod] || 0), 0);
-              });
-
-              return (
-                <Card className="mb-4 bg-green-50 border-green-200">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-green-800 flex items-center gap-2">
-                      <Info className="h-4 w-4" />
-                      Statistiques par Utilisateur (ModificationUser)
-                      <span className="ml-auto text-xs font-normal bg-green-200 px-2 py-0.5 rounded">
-                        Total: {grandTotal.toLocaleString()} écritures
-                      </span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-green-100">
-                            <TableHead className="font-bold text-green-800">Utilisateur</TableHead>
-                            {sortedModules.map(mod => (
-                              <TableHead key={mod} className="text-center font-bold text-green-800" title={getModuleLabel(mod)}>
-                                {mod}
-                              </TableHead>
-                            ))}
-                            <TableHead className="text-center font-bold text-green-800 bg-green-200">Total</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {allUsers.map(user => (
-                            <TableRow key={user} className="hover:bg-green-50">
-                              <TableCell className="font-medium text-gray-700">{user}</TableCell>
-                              {sortedModules.map(mod => {
-                                const count = userStats[user][mod] || 0;
-                                return (
-                                  <TableCell key={mod} className="text-center">
-                                    {count > 0 ? (
-                                      <span className="text-gray-700">{count.toLocaleString()}</span>
-                                    ) : (
-                                      <span className="text-gray-300">-</span>
-                                    )}
-                                  </TableCell>
-                                );
-                              })}
-                              <TableCell className="text-center font-semibold text-green-700 bg-green-100">
-                                {userTotals[user].toLocaleString()}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                          {/* Total row */}
-                          <TableRow className="bg-green-200 font-bold">
-                            <TableCell className="text-green-800">Total</TableCell>
-                            {sortedModules.map(mod => (
-                              <TableCell key={mod} className="text-center text-green-800">
-                                {moduleTotals[mod].toLocaleString()}
-                              </TableCell>
-                            ))}
-                            <TableCell className="text-center text-green-900 bg-green-300">
-                              {grandTotal.toLocaleString()}
-                            </TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })()}
-
             <Tabs defaultValue="main" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-2 max-w-md">
+              <TabsList className={`grid w-full ${fileType === "xml" ? "grid-cols-3" : "grid-cols-2"} max-w-md`}>
               <TabsTrigger value="main" className="flex items-center gap-2">
                 <FileSpreadsheet className="h-4 w-4" />
                 Par Année
@@ -918,6 +823,12 @@ const EntryAnalysis = () => {
                 <TrendingUp className="h-4 w-4" />
                 Comparatif
               </TabsTrigger>
+              {fileType === "xml" && (
+                <TabsTrigger value="users" className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Par Utilisateur
+                </TabsTrigger>
+              )}
             </TabsList>
 
             {/* Onglet Principal - Par Année */}
@@ -1221,6 +1132,226 @@ const EntryAnalysis = () => {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {/* Onglet Par Utilisateur - XML only */}
+            {fileType === "xml" && (
+              <TabsContent value="users" className="space-y-6">
+                {/* Contributions Graph */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5" />
+                      Graphique des Contributions
+                    </CardTitle>
+                    <CardDescription>
+                      Activité des utilisateurs par date (style GitHub)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {(() => {
+                      // Build contributions data: { date: { user: count } }
+                      const contributionsData: Record<string, Record<string, number>> = {};
+                      
+                      entries.forEach(entry => {
+                        if (!entry.modificationUser) return;
+                        const dateKey = entry.date.toISOString().split('T')[0];
+                        const userName = USER_MAPPING[entry.modificationUser] || `Utilisateur #${entry.modificationUser}`;
+                        
+                        if (!contributionsData[dateKey]) contributionsData[dateKey] = {};
+                        contributionsData[dateKey][userName] = (contributionsData[dateKey][userName] || 0) + 1;
+                      });
+
+                      // Get date range
+                      const sortedDates = Object.keys(contributionsData).sort();
+                      if (sortedDates.length === 0) return <p className="text-gray-500">Aucune donnée disponible</p>;
+                      
+                      const startDate = new Date(sortedDates[0]);
+                      const endDate = new Date(sortedDates[sortedDates.length - 1]);
+                      
+                      // Generate all weeks between start and end
+                      const weeks: { weekStart: Date; days: Date[] }[] = [];
+                      const current = new Date(startDate);
+                      current.setDate(current.getDate() - current.getDay()); // Start from Sunday
+                      
+                      while (current <= endDate) {
+                        const weekDays: Date[] = [];
+                        for (let i = 0; i < 7; i++) {
+                          weekDays.push(new Date(current));
+                          current.setDate(current.getDate() + 1);
+                        }
+                        weeks.push({ weekStart: weekDays[0], days: weekDays });
+                      }
+
+                      // Get all users
+                      const allUsers = Array.from(new Set(
+                        Object.values(contributionsData).flatMap(d => Object.keys(d))
+                      )).sort();
+
+                      // Color scale
+                      const getColor = (count: number, maxCount: number) => {
+                        if (count === 0) return "bg-gray-100";
+                        const intensity = Math.min(count / Math.max(maxCount * 0.3, 1), 1);
+                        if (intensity < 0.25) return "bg-green-200";
+                        if (intensity < 0.5) return "bg-green-400";
+                        if (intensity < 0.75) return "bg-green-500";
+                        return "bg-green-700";
+                      };
+
+                      const maxCounts: Record<string, number> = {};
+                      allUsers.forEach(user => {
+                        maxCounts[user] = Math.max(
+                          ...Object.values(contributionsData).map(d => d[user] || 0)
+                        );
+                      });
+
+                      return (
+                        <div className="space-y-6 overflow-x-auto">
+                          {allUsers.map(user => {
+                            const userTotal = Object.values(contributionsData).reduce(
+                              (sum, d) => sum + (d[user] || 0), 0
+                            );
+                            
+                            return (
+                              <div key={user} className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-sm">{user}</span>
+                                  <span className="text-xs text-gray-500">({userTotal} écritures)</span>
+                                </div>
+                                <div className="flex gap-0.5">
+                                  {weeks.map((week, weekIndex) => (
+                                    <div key={weekIndex} className="flex flex-col gap-0.5">
+                                      {week.days.map((day, dayIndex) => {
+                                        const dateKey = day.toISOString().split('T')[0];
+                                        const count = contributionsData[dateKey]?.[user] || 0;
+                                        const isInRange = day >= startDate && day <= endDate;
+                                        
+                                        return (
+                                          <div
+                                            key={dayIndex}
+                                            className={`w-3 h-3 rounded-sm ${
+                                              isInRange 
+                                                ? getColor(count, maxCounts[user]) 
+                                                : "bg-transparent"
+                                            }`}
+                                            title={isInRange ? `${dateKey}: ${count} écritures` : ""}
+                                          />
+                                        );
+                                      })}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          
+                          {/* Legend */}
+                          <div className="flex items-center gap-2 pt-4 text-xs text-gray-600">
+                            <span>Moins</span>
+                            <div className="w-3 h-3 rounded-sm bg-gray-100" />
+                            <div className="w-3 h-3 rounded-sm bg-green-200" />
+                            <div className="w-3 h-3 rounded-sm bg-green-400" />
+                            <div className="w-3 h-3 rounded-sm bg-green-500" />
+                            <div className="w-3 h-3 rounded-sm bg-green-700" />
+                            <span>Plus</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+
+                {/* User Stats Table */}
+                {Object.keys(userStats).length > 0 && (() => {
+                  const allUsers = Object.keys(userStats).sort((a, b) => {
+                    const totalA = Object.values(userStats[a]).reduce((sum, c) => sum + c, 0);
+                    const totalB = Object.values(userStats[b]).reduce((sum, c) => sum + c, 0);
+                    return totalB - totalA;
+                  });
+                  const allModulesInStats = new Set<string>();
+                  Object.values(userStats).forEach(moduleCounts => {
+                    Object.keys(moduleCounts).forEach(m => allModulesInStats.add(m));
+                  });
+                  const sortedModules = Array.from(allModulesInStats).sort();
+
+                  const userTotals: Record<string, number> = {};
+                  const moduleTotals: Record<string, number> = {};
+                  let grandTotal = 0;
+
+                  allUsers.forEach(user => {
+                    userTotals[user] = Object.values(userStats[user]).reduce((sum, c) => sum + c, 0);
+                    grandTotal += userTotals[user];
+                  });
+
+                  sortedModules.forEach(mod => {
+                    moduleTotals[mod] = allUsers.reduce((sum, user) => sum + (userStats[user][mod] || 0), 0);
+                  });
+
+                  return (
+                    <Card className="bg-green-50 border-green-200">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm text-green-800 flex items-center gap-2">
+                          <Info className="h-4 w-4" />
+                          Statistiques par Utilisateur et Module
+                          <span className="ml-auto text-xs font-normal bg-green-200 px-2 py-0.5 rounded">
+                            Total: {grandTotal.toLocaleString()} écritures
+                          </span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-green-100">
+                                <TableHead className="font-bold text-green-800">Utilisateur</TableHead>
+                                {sortedModules.map(mod => (
+                                  <TableHead key={mod} className="text-center font-bold text-green-800" title={getModuleLabel(mod)}>
+                                    {mod}
+                                  </TableHead>
+                                ))}
+                                <TableHead className="text-center font-bold text-green-800 bg-green-200">Total</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {allUsers.map(user => (
+                                <TableRow key={user} className="hover:bg-green-50">
+                                  <TableCell className="font-medium text-gray-700">{user}</TableCell>
+                                  {sortedModules.map(mod => {
+                                    const count = userStats[user][mod] || 0;
+                                    return (
+                                      <TableCell key={mod} className="text-center">
+                                        {count > 0 ? (
+                                          <span className="text-gray-700">{count.toLocaleString()}</span>
+                                        ) : (
+                                          <span className="text-gray-300">-</span>
+                                        )}
+                                      </TableCell>
+                                    );
+                                  })}
+                                  <TableCell className="text-center font-semibold text-green-700 bg-green-100">
+                                    {userTotals[user].toLocaleString()}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                              <TableRow className="bg-green-200 font-bold">
+                                <TableCell className="text-green-800">Total</TableCell>
+                                {sortedModules.map(mod => (
+                                  <TableCell key={mod} className="text-center text-green-800">
+                                    {moduleTotals[mod].toLocaleString()}
+                                  </TableCell>
+                                ))}
+                                <TableCell className="text-center text-green-900 bg-green-300">
+                                  {grandTotal.toLocaleString()}
+                                </TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
+              </TabsContent>
+            )}
           </Tabs>
           </>
         )}
