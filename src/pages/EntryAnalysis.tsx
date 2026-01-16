@@ -115,8 +115,10 @@ const EntryAnalysis = () => {
   const [groupByCategory, setGroupByCategory] = useState(false);
   const [comparativeGroupByCategory, setComparativeGroupByCategory] = useState(false);
   const [reversedEntriesCount, setReversedEntriesCount] = useState(0);
-  const [userStats, setUserStats] = useState<Record<string, number>>({});
+  const [userStats, setUserStats] = useState<Record<string, Record<string, number>>>({});
   const [fileType, setFileType] = useState<"excel" | "xml" | null>(null);
+  const [userStatsFilterUser, setUserStatsFilterUser] = useState<string>("all");
+  const [userStatsFilterModule, setUserStatsFilterModule] = useState<string>("all");
   const { toast } = useToast();
 
   const parseDate = (dateValue: any): Date | null => {
@@ -142,7 +144,7 @@ const EntryAnalysis = () => {
   };
 
   // Parse XML file
-  const parseXmlFile = useCallback(async (file: File): Promise<{ entries: EntryData[], reversedCount: number, userCounts: Record<string, number> }> => {
+  const parseXmlFile = useCallback(async (file: File): Promise<{ entries: EntryData[], reversedCount: number, userCounts: Record<string, Record<string, number>> }> => {
     const text = await file.text();
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(text, "text/xml");
@@ -155,7 +157,8 @@ const EntryAnalysis = () => {
     const transactions = xmlDoc.querySelectorAll("Transaction");
     const parsedEntries: EntryData[] = [];
     let reversedCount = 0;
-    const userCounts: Record<string, number> = {};
+    // userCounts structure: { userName: { module: count } }
+    const userCounts: Record<string, Record<string, number>> = {};
 
     transactions.forEach((transaction) => {
       const collectiveInfo = transaction.querySelector("CollectiveInformation");
@@ -182,10 +185,13 @@ const EntryAnalysis = () => {
       const date = parseDate(entryDateStr);
       if (!date) return;
 
-      // Track user stats
+      // Track user stats by module
       if (modificationUserId) {
         const userName = USER_MAPPING[modificationUserId] || `Utilisateur #${modificationUserId}`;
-        userCounts[userName] = (userCounts[userName] || 0) + 1;
+        if (!userCounts[userName]) {
+          userCounts[userName] = {};
+        }
+        userCounts[userName][bookingSource] = (userCounts[userName][bookingSource] || 0) + 1;
       }
 
       parsedEntries.push({
@@ -255,7 +261,7 @@ const EntryAnalysis = () => {
 
       let parsedEntries: EntryData[] = [];
       let reversedCount = 0;
-      let userCounts: Record<string, number> = {};
+      let userCounts: Record<string, Record<string, number>> = {};
       const moduleSet = new Set<string>();
 
       if (isXml) {
@@ -269,6 +275,7 @@ const EntryAnalysis = () => {
         parsedEntries = result.entries;
         reversedCount = result.reversedCount;
         setFileType("excel");
+        userCounts = {};
       }
 
       parsedEntries.forEach(entry => moduleSet.add(entry.module));
@@ -809,28 +816,147 @@ const EntryAnalysis = () => {
             </Alert>
 
             {/* User stats for XML files */}
-            {fileType === "xml" && Object.keys(userStats).length > 0 && (
-              <Card className="mb-4 bg-green-50 border-green-200">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-green-800 flex items-center gap-2">
-                    <Info className="h-4 w-4" />
-                    Statistiques par Utilisateur (ModificationUser)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
-                    {Object.entries(userStats)
-                      .sort(([, a], [, b]) => b - a)
-                      .map(([userName, count]) => (
-                        <div key={userName} className="flex justify-between items-center bg-white p-2 rounded border">
-                          <span className="text-gray-700 truncate">{userName}</span>
-                          <span className="font-semibold text-green-700 ml-2">{count.toLocaleString()}</span>
+            {fileType === "xml" && Object.keys(userStats).length > 0 && (() => {
+              // Get all unique users and modules
+              const allUsers = Object.keys(userStats).sort();
+              const allModulesInStats = new Set<string>();
+              Object.values(userStats).forEach(moduleCounts => {
+                Object.keys(moduleCounts).forEach(m => allModulesInStats.add(m));
+              });
+              const sortedModules = Array.from(allModulesInStats).sort();
+
+              // Calculate filtered stats
+              const filteredStats: Array<{ userName: string; module: string; count: number }> = [];
+              
+              Object.entries(userStats).forEach(([userName, moduleCounts]) => {
+                if (userStatsFilterUser !== "all" && userName !== userStatsFilterUser) return;
+                
+                Object.entries(moduleCounts).forEach(([module, count]) => {
+                  if (userStatsFilterModule !== "all" && module !== userStatsFilterModule) return;
+                  filteredStats.push({ userName, module, count });
+                });
+              });
+
+              // Aggregate by user or show detailed
+              const aggregatedByUser: Record<string, number> = {};
+              const aggregatedByModule: Record<string, number> = {};
+              
+              filteredStats.forEach(({ userName, module, count }) => {
+                aggregatedByUser[userName] = (aggregatedByUser[userName] || 0) + count;
+                aggregatedByModule[module] = (aggregatedByModule[module] || 0) + count;
+              });
+
+              const totalCount = filteredStats.reduce((sum, s) => sum + s.count, 0);
+
+              return (
+                <Card className="mb-4 bg-green-50 border-green-200">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm text-green-800 flex items-center gap-2">
+                      <Info className="h-4 w-4" />
+                      Statistiques par Utilisateur (ModificationUser)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Filters */}
+                    <div className="flex flex-wrap gap-4 p-3 bg-white rounded border">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm font-medium text-gray-700">Utilisateur:</label>
+                        <Select value={userStatsFilterUser} onValueChange={setUserStatsFilterUser}>
+                          <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder="Tous les utilisateurs" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tous les utilisateurs</SelectItem>
+                            {allUsers.map(user => (
+                              <SelectItem key={user} value={user}>{user}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm font-medium text-gray-700">Module:</label>
+                        <Select value={userStatsFilterModule} onValueChange={setUserStatsFilterModule}>
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Tous les modules" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tous les modules</SelectItem>
+                            {sortedModules.map(mod => (
+                              <SelectItem key={mod} value={mod}>
+                                {mod} - {getModuleLabel(mod)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center gap-2 ml-auto">
+                        <span className="text-sm font-semibold text-green-700">
+                          Total: {totalCount.toLocaleString()} écritures
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Results */}
+                    {userStatsFilterUser === "all" && userStatsFilterModule === "all" ? (
+                      // Show aggregated by user
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
+                        {Object.entries(aggregatedByUser)
+                          .sort(([, a], [, b]) => b - a)
+                          .map(([userName, count]) => (
+                            <div key={userName} className="flex justify-between items-center bg-white p-2 rounded border">
+                              <span className="text-gray-700 truncate">{userName}</span>
+                              <span className="font-semibold text-green-700 ml-2">{count.toLocaleString()}</span>
+                            </div>
+                          ))}
+                      </div>
+                    ) : userStatsFilterUser !== "all" && userStatsFilterModule === "all" ? (
+                      // Show breakdown by module for selected user
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-gray-600">Détail par module pour {userStatsFilterUser}:</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
+                          {Object.entries(aggregatedByModule)
+                            .sort(([, a], [, b]) => b - a)
+                            .map(([module, count]) => (
+                              <div key={module} className="flex justify-between items-center bg-white p-2 rounded border">
+                                <span className="text-gray-700">
+                                  <span className="font-mono font-bold">{module}</span>
+                                  <span className="text-gray-500 ml-1 text-xs">{getModuleLabel(module)}</span>
+                                </span>
+                                <span className="font-semibold text-green-700 ml-2">{count.toLocaleString()}</span>
+                              </div>
+                            ))}
                         </div>
-                      ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                      </div>
+                    ) : userStatsFilterModule !== "all" && userStatsFilterUser === "all" ? (
+                      // Show breakdown by user for selected module
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-gray-600">
+                          Détail par utilisateur pour le module {userStatsFilterModule} ({getModuleLabel(userStatsFilterModule)}):
+                        </p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
+                          {Object.entries(aggregatedByUser)
+                            .sort(([, a], [, b]) => b - a)
+                            .map(([userName, count]) => (
+                              <div key={userName} className="flex justify-between items-center bg-white p-2 rounded border">
+                                <span className="text-gray-700 truncate">{userName}</span>
+                                <span className="font-semibold text-green-700 ml-2">{count.toLocaleString()}</span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    ) : (
+                      // Both filters active - show specific count
+                      <div className="p-4 bg-white rounded border text-center">
+                        <p className="text-sm text-gray-600 mb-2">
+                          {userStatsFilterUser} • Module {userStatsFilterModule} ({getModuleLabel(userStatsFilterModule)})
+                        </p>
+                        <p className="text-2xl font-bold text-green-700">{totalCount.toLocaleString()} écritures</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
             <Tabs defaultValue="main" className="space-y-4">
               <TabsList className="grid w-full grid-cols-2 max-w-md">
