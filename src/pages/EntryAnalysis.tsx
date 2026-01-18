@@ -658,16 +658,15 @@ const EntryAnalysis = () => {
                 <BookOpen className="h-5 w-5 text-purple-600" />
                 Guide d'importation des écritures
               </CardTitle>
-              <CardDescription>
-                Importez vos écritures au format Excel (F5534) ou XML (AbaConnect)
+            <CardDescription>
+                Importez vos écritures au format Excel (F5534)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Format tabs */}
+              {/* Format guide */}
               <Tabs defaultValue="excel" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 max-w-xs">
+                <TabsList className="grid w-full grid-cols-1 max-w-xs">
                   <TabsTrigger value="excel">Format Excel</TabsTrigger>
-                  <TabsTrigger value="xml">Format XML</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="excel" className="space-y-4 mt-4">
@@ -692,32 +691,7 @@ const EntryAnalysis = () => {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="xml" className="space-y-4 mt-4">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <h3 className="font-semibold text-green-800 mb-2">Format XML (AbaConnect)</h3>
-                    <p className="text-sm text-green-900 mb-3">
-                      Le format XML offre des informations supplémentaires par rapport à Excel:
-                    </p>
-                    <ul className="list-disc list-inside space-y-1 text-sm text-green-900">
-                      <li><strong>&lt;EntryDate&gt;</strong> - Date d'écriture</li>
-                      <li><strong>&lt;BookingSource&gt;</strong> - Code module d'origine (K, D, F, etc.)</li>
-                      <li><strong>&lt;Type&gt;</strong> - Type d'écriture ("Normal" ou "Reversal" pour extournées)</li>
-                      <li><strong>&lt;ModificationUser&gt;</strong> - Identifiant du dernier utilisateur ayant modifié</li>
-                    </ul>
-                  </div>
-
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h3 className="font-semibold text-blue-800 mb-2">Utilisateurs connus</h3>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      {Object.entries(USER_MAPPING).map(([id, name]) => (
-                        <div key={id} className="flex gap-2">
-                          <span className="font-mono text-blue-700">#{id}</span>
-                          <span className="text-gray-700">{name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </TabsContent>
+                {/* XML tab hidden but functionality preserved */}
               </Tabs>
 
               <div className="grid md:grid-cols-2 gap-4">
@@ -760,7 +734,7 @@ const EntryAnalysis = () => {
               Charger un fichier
             </CardTitle>
             <CardDescription>
-              Importez un fichier Excel (.xlsx, .xls) ou XML (.xml) contenant les écritures comptables
+              Importez un fichier Excel (.xlsx, .xls) contenant les écritures comptables
             </CardDescription>
           </CardHeader>
           <CardContent>
