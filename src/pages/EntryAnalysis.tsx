@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Upload, FileSpreadsheet, BarChart3, TrendingUp, Download, FileText, Info, BookOpen } from "lucide-react";
 import abacusExportGuide from "@/assets/abacus-export-guide.png";
 import { useToast } from "@/hooks/use-toast";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from "recharts";
 import * as XLSX from "xlsx";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -1178,12 +1178,48 @@ const EntryAnalysis = () => {
                         );
                       });
 
+                      // Build sparkline data for each user (grouped by week)
+                      const getUserSparklineData = (user: string) => {
+                        const weeklyData: { week: string; count: number }[] = [];
+                        weeks.forEach((week, idx) => {
+                          const weekTotal = week.days.reduce((sum, day) => {
+                            const dateKey = day.toISOString().split('T')[0];
+                            return sum + (contributionsData[dateKey]?.[user] || 0);
+                          }, 0);
+                          weeklyData.push({ week: `S${idx + 1}`, count: weekTotal });
+                        });
+                        return weeklyData;
+                      };
+
+                      // Get month labels for the weeks
+                      const getMonthLabels = () => {
+                        const labels: { weekIndex: number; month: string; year: number }[] = [];
+                        let lastMonth = -1;
+                        
+                        weeks.forEach((week, weekIndex) => {
+                          const middleDay = week.days[3] || week.days[0]; // Use Thursday or first day
+                          const month = middleDay.getMonth();
+                          const year = middleDay.getFullYear();
+                          
+                          if (month !== lastMonth) {
+                            labels.push({ weekIndex, month: MONTH_NAMES[month], year });
+                            lastMonth = month;
+                          }
+                        });
+                        
+                        return labels;
+                      };
+
+                      const monthLabels = getMonthLabels();
+                      const dayLabels = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+
                       return (
-                        <div className="space-y-6 overflow-x-auto">
+                        <div className="space-y-6">
                           {allUsers.map(user => {
                             const userTotal = Object.values(contributionsData).reduce(
                               (sum, d) => sum + (d[user] || 0), 0
                             );
+                            const sparklineData = getUserSparklineData(user);
                             
                             return (
                               <div key={user} className="space-y-2">
@@ -1191,28 +1227,97 @@ const EntryAnalysis = () => {
                                   <span className="font-medium text-sm">{user}</span>
                                   <span className="text-xs text-gray-500">({userTotal} écritures)</span>
                                 </div>
-                                <div className="flex gap-0.5">
-                                  {weeks.map((week, weekIndex) => (
-                                    <div key={weekIndex} className="flex flex-col gap-0.5">
-                                      {week.days.map((day, dayIndex) => {
-                                        const dateKey = day.toISOString().split('T')[0];
-                                        const count = contributionsData[dateKey]?.[user] || 0;
-                                        const isInRange = day >= startDate && day <= endDate;
-                                        
-                                        return (
-                                          <div
-                                            key={dayIndex}
-                                            className={`w-3 h-3 rounded-sm ${
-                                              isInRange 
-                                                ? getColor(count, maxCounts[user]) 
-                                                : "bg-transparent"
-                                            }`}
-                                            title={isInRange ? `${dateKey}: ${count} écritures` : ""}
-                                          />
-                                        );
-                                      })}
+                                
+                                <div className="flex items-start gap-4">
+                                  {/* GitHub-style heatmap with labels */}
+                                  <div className="flex-1 overflow-x-auto">
+                                    {/* Month labels */}
+                                    <div className="flex ml-8 mb-1">
+                                      {monthLabels.map((label, idx) => (
+                                        <div 
+                                          key={idx}
+                                          className="text-xs text-gray-500"
+                                          style={{ 
+                                            position: 'relative',
+                                            left: `${label.weekIndex * 14}px`,
+                                            marginRight: idx < monthLabels.length - 1 
+                                              ? `${(monthLabels[idx + 1]?.weekIndex - label.weekIndex - 1) * 14}px` 
+                                              : 0
+                                          }}
+                                        >
+                                          {label.month}
+                                        </div>
+                                      ))}
                                     </div>
-                                  ))}
+                                    
+                                    <div className="flex">
+                                      {/* Day labels */}
+                                      <div className="flex flex-col gap-0.5 mr-1 text-xs text-gray-400">
+                                        {dayLabels.map((day, i) => (
+                                          <div key={i} className="h-3 flex items-center justify-end pr-1" style={{ fontSize: '9px' }}>
+                                            {i % 2 === 1 ? day : ''}
+                                          </div>
+                                        ))}
+                                      </div>
+                                      
+                                      {/* Grid */}
+                                      <div className="flex gap-0.5">
+                                        {weeks.map((week, weekIndex) => (
+                                          <div key={weekIndex} className="flex flex-col gap-0.5">
+                                            {week.days.map((day, dayIndex) => {
+                                              const dateKey = day.toISOString().split('T')[0];
+                                              const count = contributionsData[dateKey]?.[user] || 0;
+                                              const isInRange = day >= startDate && day <= endDate;
+                                              const formattedDate = `${day.getDate()} ${MONTH_NAMES[day.getMonth()]} ${day.getFullYear()}`;
+                                              
+                                              return (
+                                                <div
+                                                  key={dayIndex}
+                                                  className={`w-3 h-3 rounded-sm ${
+                                                    isInRange 
+                                                      ? getColor(count, maxCounts[user]) 
+                                                      : "bg-transparent"
+                                                  }`}
+                                                  title={isInRange ? `${formattedDate}: ${count} écritures` : ""}
+                                                />
+                                              );
+                                            })}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Sparkline chart */}
+                                  <div className="w-48 h-24 flex-shrink-0">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                      <AreaChart data={sparklineData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                                        <defs>
+                                          <linearGradient id={`gradient-${user.replace(/\s+/g, '-')}`} x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.8}/>
+                                            <stop offset="95%" stopColor="#22c55e" stopOpacity={0.1}/>
+                                          </linearGradient>
+                                        </defs>
+                                        <Area 
+                                          type="monotone" 
+                                          dataKey="count" 
+                                          stroke="#16a34a" 
+                                          strokeWidth={2}
+                                          fill={`url(#gradient-${user.replace(/\s+/g, '-')})`}
+                                        />
+                                        <Tooltip 
+                                          contentStyle={{ 
+                                            backgroundColor: "white", 
+                                            border: "1px solid #e5e7eb",
+                                            borderRadius: "8px",
+                                            fontSize: "12px",
+                                            padding: "4px 8px"
+                                          }}
+                                          formatter={(value: number) => [`${value} écritures`, 'Semaine']}
+                                        />
+                                      </AreaChart>
+                                    </ResponsiveContainer>
+                                  </div>
                                 </div>
                               </div>
                             );
