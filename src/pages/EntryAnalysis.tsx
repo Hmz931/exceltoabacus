@@ -650,7 +650,46 @@ const EntryAnalysis = () => {
           </p>
         </div>
 
-        {/* Guide Section - Always visible before file upload */}
+        {/* File Upload Section - Always at top */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Charger un fichier
+            </CardTitle>
+            <CardDescription>
+              Importez un fichier Excel (.xlsx, .xls) contenant les écritures comptables
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-center gap-4">
+              <Input
+                type="file"
+                accept=".xlsx,.xls,.xml"
+                onChange={handleFileUpload}
+                disabled={isProcessing}
+                className="max-w-md"
+              />
+              {isProcessing && (
+                <span className="text-sm text-gray-500">Analyse en cours...</span>
+              )}
+              {entries.length > 0 && (
+                <div className="flex gap-2 ml-auto">
+                  <Button onClick={exportToExcel} variant="outline" className="gap-2">
+                    <Download className="h-4 w-4" />
+                    Excel
+                  </Button>
+                  <Button onClick={exportToPDF} variant="outline" className="gap-2">
+                    <FileText className="h-4 w-4" />
+                    PDF
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Guide Section - Visible before file upload */}
         {entries.length === 0 && (
           <Card className="mb-8">
             <CardHeader>
@@ -726,44 +765,6 @@ const EntryAnalysis = () => {
             </CardContent>
           </Card>
         )}
-
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5" />
-              Charger un fichier
-            </CardTitle>
-            <CardDescription>
-              Importez un fichier Excel (.xlsx, .xls) contenant les écritures comptables
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap items-center gap-4">
-              <Input
-                type="file"
-                accept=".xlsx,.xls,.xml"
-                onChange={handleFileUpload}
-                disabled={isProcessing}
-                className="max-w-md"
-              />
-              {isProcessing && (
-                <span className="text-sm text-gray-500">Analyse en cours...</span>
-              )}
-              {entries.length > 0 && (
-                <div className="flex gap-2 ml-auto">
-                  <Button onClick={exportToExcel} variant="outline" className="gap-2">
-                    <Download className="h-4 w-4" />
-                    Excel
-                  </Button>
-                  <Button onClick={exportToPDF} variant="outline" className="gap-2">
-                    <FileText className="h-4 w-4" />
-                    PDF
-                  </Button>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
 
         {entries.length > 0 && (
           <>
