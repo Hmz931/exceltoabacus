@@ -17,6 +17,44 @@ export const tauxTVAMapping: { [key: number]: number } = {
   115: 100, 125: 100
 };
 
+// Convert Excel serial date or string date to dd.mm.yyyy format
+export const convertToAbacusDate = (dateValue: any): string => {
+  if (!dateValue) return "";
+  
+  // If it's a number (Excel serial date)
+  if (typeof dateValue === 'number') {
+    // Excel serial date starts from 1900-01-01 (with the 1900 leap year bug)
+    const excelEpoch = new Date(1899, 11, 30); // Dec 30, 1899
+    const date = new Date(excelEpoch.getTime() + dateValue * 24 * 60 * 60 * 1000);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
+  }
+  
+  // If it's already a string
+  const strDate = String(dateValue);
+  
+  // Check if already in dd.mm.yyyy format
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(strDate)) {
+    return strDate;
+  }
+  
+  // Convert from dd/mm/yyyy to dd.mm.yyyy
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(strDate)) {
+    return strDate.replace(/\//g, '.');
+  }
+  
+  // Convert from yyyy-mm-dd to dd.mm.yyyy
+  if (/^\d{4}-\d{2}-\d{2}$/.test(strDate)) {
+    const [year, month, day] = strDate.split('-');
+    return `${day}.${month}.${year}`;
+  }
+  
+  // Return as-is if format is unrecognized
+  return strDate;
+};
+
 // Define the columns for the output Excel file
 export const outputColumns = [
   "N° enregistrement", "Version", "Date", "Compte", "Contrepartie", "Texte1", "Montant", "Texte2", "DC",
@@ -54,7 +92,7 @@ export const transformData = (jsonData: ExcelRow[]): ExcelRow[] => {
     return {
       "N° enregistrement": index + 1, 
       "Version": "J", 
-      "Date": row["Date"], 
+      "Date": convertToAbacusDate(row["Date"]), 
       "Compte": row["Compte"],
       "Contrepartie": row["Contrepartie"] || "", 
       "Texte1": texte1, 
