@@ -40,6 +40,7 @@ const USER_MAPPING: Record<string, string> = {
   "247": "Christophe Guillaud",
   "315": "Lamber FALQUET",
   "318": "Julien Simmonet",
+  "343": "Bruno LIMA",
   "369": "Rodolphe Droin",
   "416": "Jolan Labhard",
   "417": "Imène Ben Rabeb",
