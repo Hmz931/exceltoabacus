@@ -133,6 +133,7 @@ const DebFactManager: React.FC = () => {
   };
 
   const escapeXml = (unsafe: string): string => {
+    if (!unsafe) return '';
     return String(unsafe)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -204,6 +205,7 @@ const DebFactManager: React.FC = () => {
       xml += `        <PaymentReferenceLine>${paymentRef}</PaymentReferenceLine>\n`;
       xml += '        <CollectiveAccount>1100</CollectiveAccount>\n';
 
+      // Generate LineItems
       group.forEach((row: InvoiceRow) => {
         const textContent = String(row['Libellé'] || '');
         xml += '        <LineItem mode="SAVE">\n';
@@ -212,16 +214,19 @@ const DebFactManager: React.FC = () => {
         xml += `          <KeyAmount>${row.GrossAmount.toFixed(2)}</KeyAmount>\n`;
         xml += `          <CreditAccount>${row['Compte']}</CreditAccount>\n`;
         xml += `          <Project>0</Project>\n`;
-        xml += `          <CreditCostCentre1>${row['Centre de Coût']}</CreditCostCentre1>\n`;
-        xml += `          <TaxMethod>1</TaxMethod>\n';
+        xml += `          <CreditCostCentre1>${row['Centre de Coût'] || '0'}</CreditCostCentre1>\n`; // CORRIGÉ
+        xml += `          <TaxMethod>1</TaxMethod>\n`;
         xml += `          <TaxCode>${row['Code TVA']}</TaxCode>\n`;
         xml += `          <TaxIncluded>${row.TVAIncluseXML}</TaxIncluded>\n`;
         xml += `          <TaxAmount>${row.VatAmount.toFixed(2)}</TaxAmount>\n`;
         xml += `          <TaxDateValidFrom>${dateFormatted}</TaxDateValidFrom>\n`;
         xml += `          <Text>${escapeXml(textContent.substring(0, 80))}</Text>\n`;
         xml += '        </LineItem>\n';
-        xml += `        <Reference>${escapeXml(textContent.substring(0, 60))}</Reference>\n`;
       });
+
+      // Add Reference (ONLY ONCE per document, not per line)
+      const referenceText = String(firstRow['Libellé'] || '').substring(0, 60);
+      xml += `        <Reference>${escapeXml(referenceText)}</Reference>\n`;
 
       // Payment Term
       xml += '        <PaymentTerm mode="SAVE">\n';
@@ -314,12 +319,28 @@ const DebFactManager: React.FC = () => {
         throw new Error('Le fichier Excel est vide');
       }
 
+      // Debug: Afficher les colonnes disponibles
+      console.log('Colonnes disponibles:', Object.keys(jsonData[0] || {}));
+
       // Process data
       const processedData = processExcelData(jsonData);
+      
+      // Debug: Vérifier les valeurs de Centre de Coût
+      const firstInvoiceKey = Object.keys(processedData.invoices)[0];
+      if (firstInvoiceKey) {
+        console.log('Première facture - valeurs Centre de Coût:');
+        processedData.invoices[firstInvoiceKey].forEach((row, index) => {
+          console.log(`Ligne ${index}: Centre de Coût = "${row['Centre de Coût']}"`);
+        });
+      }
       
       // Generate XML
       const xml = generateXML(processedData);
       setXmlContent(xml);
+      
+      // Afficher un aperçu du XML généré pour débogage
+      console.log('Aperçu XML généré:');
+      console.log(xml.substring(xml.indexOf('<LineItem'), xml.indexOf('<LineItem') + 1000));
       
       setStatus('success');
       setStatusMessage('✓ Conversion réussie!');
@@ -336,7 +357,7 @@ const DebFactManager: React.FC = () => {
     } catch (error) {
       setStatus('error');
       setStatusMessage('✗ Erreur: ' + (error as Error).message);
-      console.error(error);
+      console.error('Erreur détaillée:', error);
     }
   };
 
@@ -459,6 +480,17 @@ const DebFactManager: React.FC = () => {
           </div>
         )}
 
+        {/* Instructions for Excel format */}
+        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+          <div className="font-semibold text-blue-700 mb-2">
+            📋 Format Excel requis:
+          </div>
+          <div className="text-sm text-blue-600 space-y-1">
+            <div>• Colonne <span className="font-mono">Centre de Coût</span> doit être présente</div>
+            <div>• Autres colonnes obligatoires: N° Facture, Date Facture, Client, Montant</div>
+          </div>
+        </div>
+
         {/* Convert Button */}
         <button
           onClick={convertToXML}
@@ -529,6 +561,3 @@ const DebFactManager: React.FC = () => {
 };
 
 export default DebFactManager;
-
-
-
