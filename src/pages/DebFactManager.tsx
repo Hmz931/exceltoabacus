@@ -211,9 +211,9 @@ const DebFactManager: React.FC = () => {
         xml += `          <Amount>${row.GrossAmount.toFixed(2)}</Amount>\n`;
         xml += `          <KeyAmount>${row.GrossAmount.toFixed(2)}</KeyAmount>\n`;
         xml += `          <CreditAccount>${row['Compte']}</CreditAccount>\n`;
-        xml += '          <Project>0</Project>\n`;
-        xml += '          <CreditCostCentre1>${row['Centre de Coût']}</CreditCostCentre1>\n`;
-        xml += '          <TaxMethod>1</TaxMethod>\n';
+        xml += `          <Project>0</Project>\n`;
+        xml += `          <CreditCostCentre1>${row['Centre de Coût']}</CreditCostCentre1>\n`;
+        xml += `          <TaxMethod>1</TaxMethod>\n';
         xml += `          <TaxCode>${row['Code TVA']}</TaxCode>\n`;
         xml += `          <TaxIncluded>${row.TVAIncluseXML}</TaxIncluded>\n`;
         xml += `          <TaxAmount>${row.VatAmount.toFixed(2)}</TaxAmount>\n`;
@@ -529,5 +529,6 @@ const DebFactManager: React.FC = () => {
 };
 
 export default DebFactManager;
+
 
 
