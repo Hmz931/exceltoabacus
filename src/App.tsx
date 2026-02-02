@@ -9,6 +9,7 @@ import AddressManager from "./pages/AddressManager";
 import CamtConverter from "./pages/CamtConverter";
 import EntryAnalysis from "./pages/EntryAnalysis";
 import DebFactManager from "./pages/DebFactManager";
+import BankStatementConverter from "./pages/BankStatementConverter";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,9 @@ const App = () => (
                     <Link to="/DebFactManager" className="text-gray-600 hover:text-blue-600">
                     DebFactManager
                   </Link>
+                  <Link to="/bank-converter" className="text-gray-600 hover:text-blue-600">
+                    PDF → Excel
+                  </Link>
                 </div>
               </div>
             </div>
@@ -50,6 +54,7 @@ const App = () => (
             <Route path="/camt-converter" element={<CamtConverter />} />
             <Route path="/entry-analysis" element={<EntryAnalysis />} />
             <Route path="/DebFactManager" element={<DebFactManager />} />
+            <Route path="/bank-converter" element={<BankStatementConverter />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           
