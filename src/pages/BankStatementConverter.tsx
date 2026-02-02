@@ -1,16 +1,20 @@
-import React, { useState, useRef, DragEvent, ChangeEvent, useEffect } from 'react';
+import React, { useState, useRef, DragEvent, ChangeEvent } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { 
   BankTransaction, 
+  BankType,
+  BANK_OPTIONS,
   parseTransactionsFromText, 
   createBankExcelFile, 
   downloadBankExcelFile 
 } from '@/utils/pdfBankUtils';
-import { FileText, Download, Upload, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { FileText, Download, Upload, AlertCircle, CheckCircle2, Building2 } from 'lucide-react';
 
 // Set the worker source for pdf.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
@@ -22,6 +26,7 @@ const BankStatementConverter: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [selectedBank, setSelectedBank] = useState<BankType>('bcge');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -100,8 +105,8 @@ const BankStatementConverter: React.FC = () => {
       // Extract text from PDF
       const text = await extractTextFromPDF(file);
       
-      // Parse transactions
-      const parsedTransactions = parseTransactionsFromText(text);
+      // Parse transactions based on selected bank
+      const parsedTransactions = parseTransactionsFromText(text, selectedBank);
       
       if (parsedTransactions.length === 0) {
         throw new Error('Aucune transaction trouvée dans le PDF');
@@ -170,6 +175,33 @@ const BankStatementConverter: React.FC = () => {
             Convertissez vos relevés bancaires PDF (format BCGE) en fichier Excel exploitable
           </p>
         </div>
+
+        {/* Bank Selection */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Sélectionner votre banque
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <Label htmlFor="bank-select">Type de relevé bancaire</Label>
+              <Select value={selectedBank} onValueChange={(value: BankType) => setSelectedBank(value)}>
+                <SelectTrigger id="bank-select" className="w-full md:w-[400px]">
+                  <SelectValue placeholder="Choisir une banque" />
+                </SelectTrigger>
+                <SelectContent>
+                  {BANK_OPTIONS.map((bank) => (
+                    <SelectItem key={bank.value} value={bank.value}>
+                      {bank.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Upload Card */}
         <Card>
@@ -250,9 +282,10 @@ const BankStatementConverter: React.FC = () => {
             <Separator className="my-6" />
 
             <div className="bg-blue-50 p-4 rounded-md">
-              <h3 className="text-sm font-medium text-blue-800 mb-2">Format supporté:</h3>
+              <h3 className="text-sm font-medium text-blue-800 mb-2">Banques supportées:</h3>
               <ul className="text-sm text-blue-700 space-y-1">
-                <li>• Relevés bancaires BCGE (Banque Cantonale de Genève)</li>
+                <li>• <strong>BCGE</strong> (Banque Cantonale de Genève)</li>
+                <li>• <strong>Raiffeisen</strong> - Relevés avec tableau structuré</li>
                 <li>• Format PDF avec dates au format JJ.MM.AAAA</li>
                 <li>• Colonnes extraites: Date, Description, Débit, Crédit, Solde</li>
               </ul>
