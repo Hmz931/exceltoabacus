@@ -38,15 +38,19 @@ export const toFloat = (value: string | null | undefined): number => {
  */
 export const parseTransactionsFromText = (text: string): BankTransaction[] => {
   const datePattern = /^\d{2}\.\d{2}\.\d{4}/;
+  const dateInLinePattern = /\d{2}\.\d{2}\.\d{4}/g;
   const rows: string[][] = [];
   
   const lines = text.split('\n');
   let transactionLines: string[] = [];
   
+  console.log('Nombre de lignes à analyser:', lines.length);
+  
   for (const line of lines) {
     const trimmedLine = line.trim();
     if (!trimmedLine) continue;
     
+    // Check if line starts with a date
     if (datePattern.test(trimmedLine)) {
       if (transactionLines.length > 0) {
         rows.push([...transactionLines]);
@@ -62,31 +66,52 @@ export const parseTransactionsFromText = (text: string): BankTransaction[] => {
     rows.push(transactionLines);
   }
   
+  console.log('Blocs de transactions trouvés:', rows.length);
+  if (rows.length > 0) {
+    console.log('Premier bloc:', rows[0]);
+  }
+  
   // Parse structured data
   const structuredData: { date: string; texte: string; soldeNum: number }[] = [];
   
   for (const block of rows) {
     const firstLine = block[0];
-    const dateParts = firstLine.split(/\s+/);
-    const date = dateParts[0];
     
-    // Extract balance at the end of the first line (last number with apostrophes)
-    const balanceMatch = firstLine.match(/([\d',.-]+)$/);
-    const balanceVal = balanceMatch ? toFloat(balanceMatch[1]) : 0.0;
+    // Extract date from beginning of line
+    const dateMatch = firstLine.match(datePattern);
+    if (!dateMatch) continue;
     
-    // Clean the first line: remove date and balance
+    const date = dateMatch[0];
+    
+    // Extract all numbers that look like amounts (with apostrophes for thousands)
+    const amountPattern = /[\d']+[.,]\d{2}(?!\d)/g;
+    const amounts = firstLine.match(amountPattern) || [];
+    
+    // The last amount is typically the balance (Solde)
+    const balanceVal = amounts.length > 0 ? toFloat(amounts[amounts.length - 1]) : 0.0;
+    
+    // Clean the first line: remove date and amounts for the description
     let firstLineClean = firstLine.replace(datePattern, '');
-    firstLineClean = firstLineClean.replace(/([\d',.-]+)$/, '').trim();
+    // Remove all amounts from description
+    amounts.forEach(amt => {
+      firstLineClean = firstLineClean.replace(amt, '');
+    });
+    firstLineClean = firstLineClean.trim();
     
-    // Combine all text
+    // Combine all text from the block
     let fullText = firstLineClean;
     if (block.length > 1) {
       fullText += ' ' + block.slice(1).join(' ');
     }
     
-    // Clean text: remove CHF mentions and extra spaces
+    // Clean text: remove CHF mentions, extra spaces, and common patterns
     fullText = fullText.replace(/CHF/gi, '');
     fullText = fullText.replace(/\s+/g, ' ').trim();
+    
+    // Skip header lines or non-transaction entries
+    if (fullText.toLowerCase().includes('solde') && fullText.toLowerCase().includes('date')) continue;
+    if (fullText.toLowerCase().includes('relevé de compte')) continue;
+    if (!fullText || fullText.length < 3) continue;
     
     structuredData.push({
       date,
@@ -95,22 +120,29 @@ export const parseTransactionsFromText = (text: string): BankTransaction[] => {
     });
   }
   
+  console.log('Transactions structurées:', structuredData.length);
+  if (structuredData.length > 0) {
+    console.log('Première transaction:', structuredData[0]);
+  }
+  
   // Calculate Delta (movement) and separate Debit/Credit
   const transactions: BankTransaction[] = [];
   
   for (let i = 0; i < structuredData.length; i++) {
     const row = structuredData[i];
-    let delta: number | null = null;
     let debit: number | null = null;
     let credit: number | null = null;
     
     if (i > 0) {
-      delta = row.soldeNum - structuredData[i - 1].soldeNum;
+      const delta = row.soldeNum - structuredData[i - 1].soldeNum;
       
-      if (delta < 0) {
-        debit = Math.abs(delta);
-      } else if (delta > 0) {
-        credit = delta;
+      // Round to 2 decimals to avoid floating point issues
+      const roundedDelta = Math.round(delta * 100) / 100;
+      
+      if (roundedDelta < 0) {
+        debit = Math.abs(roundedDelta);
+      } else if (roundedDelta > 0) {
+        credit = roundedDelta;
       }
     }
     
