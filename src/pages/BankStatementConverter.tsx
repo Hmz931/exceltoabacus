@@ -45,12 +45,34 @@ const BankStatementConverter: React.FC = () => {
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
-      fullText += pageText + '\n';
+      
+      // Group text items by their Y position to reconstruct lines
+      const items = textContent.items as any[];
+      const lineMap = new Map<number, { x: number; text: string }[]>();
+      
+      for (const item of items) {
+        if (!item.str) continue;
+        // Round Y to group items on same line (tolerance of 3 pixels)
+        const y = Math.round(item.transform[5] / 3) * 3;
+        if (!lineMap.has(y)) {
+          lineMap.set(y, []);
+        }
+        lineMap.get(y)!.push({ x: item.transform[4], text: item.str });
+      }
+      
+      // Sort lines by Y (descending - PDF coordinates start from bottom)
+      const sortedYs = Array.from(lineMap.keys()).sort((a, b) => b - a);
+      
+      for (const y of sortedYs) {
+        const lineItems = lineMap.get(y)!;
+        // Sort items by X position within line
+        lineItems.sort((a, b) => a.x - b.x);
+        const lineText = lineItems.map(item => item.text).join(' ');
+        fullText += lineText + '\n';
+      }
     }
     
+    console.log('Texte extrait du PDF (premiers 2000 caractères):', fullText.substring(0, 2000));
     return fullText;
   };
 
