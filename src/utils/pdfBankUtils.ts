@@ -42,100 +42,92 @@ export const toFloat = (value: string | null | undefined): number => {
  * ────────────────────────────────────────────────────────────────
  * → KEPT EXACTLY AS IN YOUR GITHUB VERSION
  */
+/**
+ * Parse BCGE PDF (format 2024+) – version corrigée pour multi-lignes + solde correct
+ */
 export const parseBCGETransactions = (text: string): BankTransaction[] => {
   const datePattern = /^\d{2}\.\d{2}\.\d{4}/;
-  const rows: string[][] = [];
-  
-  const lines = text.split('\n');
-  let transactionLines: string[] = [];
-  
-  console.log('[BCGE] Nombre de lignes à analyser:', lines.length);
-  
+  const amountPattern = /[\d']+\.\d{2}(?!\d)/g;   // meilleur regex pour montants suisses
+
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const blocks: string[][] = [];
+  let currentBlock: string[] = [];
+
+  console.log('[BCGE] Lignes totales:', lines.length);
+
   for (const line of lines) {
-    const trimmedLine = line.trim();
-    if (!trimmedLine) continue;
-    
-    if (datePattern.test(trimmedLine)) {
-      if (transactionLines.length > 0) {
-        rows.push([...transactionLines]);
+    if (datePattern.test(line)) {
+      if (currentBlock.length > 0) {
+        blocks.push([...currentBlock]);
       }
-      transactionLines = [trimmedLine];
-    } else if (transactionLines.length > 0) {
-      transactionLines.push(trimmedLine);
+      currentBlock = [line];
+    } else if (currentBlock.length > 0) {
+      currentBlock.push(line);
     }
   }
-  
-  if (transactionLines.length > 0) {
-    rows.push(transactionLines);
-  }
-  
-  console.log('[BCGE] Blocs de transactions trouvés:', rows.length);
-  
-  const structuredData: { date: string; texte: string; soldeNum: number }[] = [];
-  
-  for (const block of rows) {
+  if (currentBlock.length > 0) blocks.push(currentBlock);
+
+  console.log('[BCGE] Blocs détectés:', blocks.length);
+
+  const transactions: BankTransaction[] = [];
+  let previousSolde: number | null = null;
+
+  for (const block of blocks) {
+    if (block.length === 0) continue;
+
     const firstLine = block[0];
     const dateMatch = firstLine.match(datePattern);
     if (!dateMatch) continue;
-    
     const date = dateMatch[0];
-    const amountPattern = /[\d']+[.,]\d{2}(?!\d)/g;
-    const amounts = firstLine.match(amountPattern) || [];
-    const balanceVal = amounts.length > 0 ? toFloat(amounts[amounts.length - 1]) : 0.0;
-    
-    let firstLineClean = firstLine.replace(datePattern, '');
-    amounts.forEach(amt => {
-      firstLineClean = firstLineClean.replace(amt, '');
-    });
-    firstLineClean = firstLineClean.trim();
-    
-    let fullText = firstLineClean;
-    if (block.length > 1) {
-      fullText += ' ' + block.slice(1).join(' ');
-    }
-    
-    fullText = fullText.replace(/CHF/gi, '');
-    fullText = fullText.replace(/\s+/g, ' ').trim();
-    
-    if (fullText.toLowerCase().includes('solde') && fullText.toLowerCase().includes('date')) continue;
-    if (fullText.toLowerCase().includes('relevé de compte')) continue;
-    if (!fullText || fullText.length < 3) continue;
-    
-    structuredData.push({ date, texte: fullText, soldeNum: balanceVal });
-  }
-  
-  console.log('[BCGE] Transactions structurées:', structuredData.length);
-  
-  const transactions: BankTransaction[] = [];
-  
-  for (let i = 0; i < structuredData.length; i++) {
-    const row = structuredData[i];
-    let debit: number | null = null;
-    let credit: number | null = null;
-    
-    if (i > 0) {
-      const delta = row.soldeNum - structuredData[i - 1].soldeNum;
-      const roundedDelta = Math.round(delta * 100) / 100;
-      
-      if (roundedDelta < 0) {
-        debit = Math.abs(roundedDelta);
-      } else if (roundedDelta > 0) {
-        credit = roundedDelta;
+
+    // === Extraction du solde (dernier montant du bloc) ===
+    let solde = 0;
+    for (let i = block.length - 1; i >= 0; i--) {
+      const matches = block[i].match(amountPattern);
+      if (matches && matches.length > 0) {
+        solde = toFloat(matches[matches.length - 1]);
+        break;
       }
     }
-    
+
+    // === Construction description complète ===
+    let description = block
+      .slice(1)                                      // enlever la ligne de date
+      .join(' ')
+      .replace(/Donneur d'ordre\s*/gi, '')
+      .replace(/Bénéficiaire\s*/gi, '')
+      .replace(/Montant\s*CHF\s*/gi, '')
+      .replace(/Communication\/Référence\s*/gi, '')
+      .replace(/CHF\s*/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!description) description = '(transaction sans description)';
+
+    // === Calcul débit / crédit via delta ===
+    let debit: number | null = null;
+    let credit: number | null = null;
+
+    if (previousSolde !== null) {
+      const delta = Math.round((solde - previousSolde) * 100) / 100;
+      if (delta < 0) debit = Math.abs(delta);
+      else if (delta > 0) credit = delta;
+    }
+
     transactions.push({
-      date: row.date,
-      description: row.texte,
+      date,
+      description,
       debit,
       credit,
-      solde: row.soldeNum
+      solde
     });
+
+    previousSolde = solde;
   }
-  
+
+  console.log('[BCGE] Transactions extraites:', transactions.length);
   return transactions;
 };
-
 /**
  * Improved Raiffeisen parser – based on delta of solde + better line grouping
  */
