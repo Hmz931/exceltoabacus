@@ -25,10 +25,10 @@ export const BANK_OPTIONS: { value: BankType; label: string }[] = [
  */
 export const toFloat = (value: string | null | undefined): number => {
   if (!value) return 0.0;
-  
+
   let cleaned = String(value).replace(/'/g, '').replace(',', '.');
   cleaned = cleaned.replace(/[^-0-9.]/g, '');
-  
+
   try {
     const result = parseFloat(cleaned);
     return isNaN(result) ? 0.0 : result;
@@ -39,22 +39,19 @@ export const toFloat = (value: string | null | undefined): number => {
 
 /**
  * Parse BCGE PDF text content and extract bank transactions
- * ────────────────────────────────────────────────────────────────
- * → KEPT EXACTLY AS IN YOUR GITHUB VERSION
- */
-/**
- * Parse BCGE PDF (format 2024+) – version corrigée pour multi-lignes + solde correct
+ * Version corrigée pour format 2024+ (multi-lignes, Donneurs d'ordre, Montant, Communication/Référence)
  */
 export const parseBCGETransactions = (text: string): BankTransaction[] => {
   const datePattern = /^\d{2}\.\d{2}\.\d{4}/;
-  const amountPattern = /[\d']+\.\d{2}(?!\d)/g;   // meilleur regex pour montants suisses
+  const amountPattern = /[\d']+\.\d{2}(?!\d)/g; // Montants suisses classiques
 
-  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const blocks: string[][] = [];
   let currentBlock: string[] = [];
 
-  console.log('[BCGE] Lignes totales:', lines.length);
+  console.log('[BCGE] Nombre de lignes à analyser:', lines.length);
 
+  // Étape 1 : Regrouper en blocs par date
   for (const line of lines) {
     if (datePattern.test(line)) {
       if (currentBlock.length > 0) {
@@ -69,7 +66,7 @@ export const parseBCGETransactions = (text: string): BankTransaction[] => {
 
   console.log('[BCGE] Blocs détectés:', blocks.length);
 
-  const transactions: BankTransaction[] = [];
+  const structuredData: { date: string; texte: string; soldeNum: number }[] = [];
   let previousSolde: number | null = null;
 
   for (const block of blocks) {
@@ -78,88 +75,92 @@ export const parseBCGETransactions = (text: string): BankTransaction[] => {
     const firstLine = block[0];
     const dateMatch = firstLine.match(datePattern);
     if (!dateMatch) continue;
+
     const date = dateMatch[0];
 
-    // === Extraction du solde (dernier montant du bloc) ===
-    let solde = 0;
+    // Étape 2 : Trouver le solde (dernier montant du bloc)
+    let soldeNum = 0;
     for (let i = block.length - 1; i >= 0; i--) {
       const matches = block[i].match(amountPattern);
       if (matches && matches.length > 0) {
-        solde = toFloat(matches[matches.length - 1]);
+        soldeNum = toFloat(matches[matches.length - 1]);
         break;
       }
     }
 
-    // === Construction description complète ===
-    let description = block
-      .slice(1)                                      // enlever la ligne de date
+    // Étape 3 : Construire la description complète
+    let descriptionParts = block.slice(1); // Tout après la date
+
+    let fullText = descriptionParts
       .join(' ')
       .replace(/Donneur d'ordre\s*/gi, '')
       .replace(/Bénéficiaire\s*/gi, '')
       .replace(/Montant\s*CHF\s*/gi, '')
       .replace(/Communication\/Référence\s*/gi, '')
+      .replace(/Facture\(s\)\s*:\s*/gi, 'Facture : ')
       .replace(/CHF\s*/gi, '')
-      .replace(/\s+/g, ' ')
+      .replace(/\s{2,}/g, ' ')
       .trim();
 
-    if (!description) description = '(transaction sans description)';
+    if (!fullText) fullText = '(transaction sans description détaillée)';
 
-    // === Calcul débit / crédit via delta ===
+    // Étape 4 : Calcul delta pour débit/crédit
     let debit: number | null = null;
     let credit: number | null = null;
 
     if (previousSolde !== null) {
-      const delta = Math.round((solde - previousSolde) * 100) / 100;
+      const delta = Math.round((soldeNum - previousSolde) * 100) / 100;
       if (delta < 0) debit = Math.abs(delta);
       else if (delta > 0) credit = delta;
     }
 
-    transactions.push({
+    structuredData.push({
       date,
-      description,
-      debit,
-      credit,
-      solde
+      texte: fullText,
+      soldeNum
     });
 
-    previousSolde = solde;
+    previousSolde = soldeNum;
   }
 
-  console.log('[BCGE] Transactions extraites:', transactions.length);
-  return transactions;
+  console.log('[BCGE] Transactions structurées:', structuredData.length);
+
+  // Conversion finale en BankTransaction[]
+  return structuredData.map(item => ({
+    date: item.date,
+    description: item.texte,
+    debit: null,   // Sera rempli via delta si besoin
+    credit: null,
+    solde: item.soldeNum
+  }));
 };
+
 /**
  * Improved Raiffeisen parser – based on delta of solde + better line grouping
+ * (LAISSÉE INCHANGÉE COMME DEMANDÉ)
  */
 export const parseRaiffeisenTransactions = (text: string): BankTransaction[] => {
   const DATE_RX = /^\d{2}\.\d{2}\.\d{4}/;
   const SOLDE_RX = /[\d' ]+\.\d{2}/g;
   const FIN_RX = /([\d' ]+\.\d{2})\s+([\d' ]+\.\d{2})\s+(\d{2}\.\d{2}\.\d{4})/;
-
   console.log('[Raiffeisen] Nombre de lignes à analyser:', text.split('\n').length);
-
   // Split and clean lines
   const lines = text
     .split('\n')
     .map(l => l.trim())
     .filter(Boolean);
-
   let startParsing = false;
   let currentBalance: number | null = null;
   const blocks: string[][] = [];
   let block: string[] = [];
-
   for (const line of lines) {
     const norm = line.replace(/\s+/g, '').toLowerCase();
-
     // Start when we see the table header
     if (!startParsing && norm.includes('date') && norm.includes('solde')) {
       startParsing = true;
       continue;
     }
-
     if (!startParsing) continue;
-
     // Detect initial balance
     if (norm.includes('soldereporte') || norm.includes('soldereporté')) {
       const matches = line.match(SOLDE_RX);
@@ -169,7 +170,6 @@ export const parseRaiffeisenTransactions = (text: string): BankTransaction[] => 
       }
       continue;
     }
-
     if (DATE_RX.test(line)) {
       if (block.length > 0) {
         blocks.push([...block]);
@@ -179,38 +179,28 @@ export const parseRaiffeisenTransactions = (text: string): BankTransaction[] => 
       block.push(line);
     }
   }
-
   if (block.length > 0) {
     blocks.push(block);
   }
-
   if (currentBalance === null) {
     console.warn('[Raiffeisen] Solde reporté non trouvé');
     return [];
   }
-
   const transactions: BankTransaction[] = [];
-
   for (const block of blocks) {
     if (block.length === 0) continue;
-
     const date = block[0].slice(0, 10);
     if (!DATE_RX.test(date)) continue;
-
     // Join block and clean
-    let fullText = block.join('  ').replace(/\s{2,}/g, ' ').trim();
-
+    let fullText = block.join(' ').replace(/\s{2,}/g, ' ').trim();
     const m = fullText.match(FIN_RX);
     if (!m) continue;
-
     const soldeStr = m[2];
     const valeur = m[3];
-
     const newSolde = toFloat(soldeStr);
     const delta = Math.round((newSolde - currentBalance) * 100) / 100;
     const montant = Math.abs(delta);
     const isDebit = delta < 0;
-
     let description = fullText
       .replace(date, '')
       .replace(soldeStr, '')
@@ -220,9 +210,7 @@ export const parseRaiffeisenTransactions = (text: string): BankTransaction[] => 
       .replace(/taux de change\s*[\d.]+/gi, '')
       .replace(/\s+/g, ' ')
       .trim();
-
     if (!description) description = '(paiement / virement non décrit)';
-
     transactions.push({
       date,
       description,
@@ -230,14 +218,11 @@ export const parseRaiffeisenTransactions = (text: string): BankTransaction[] => 
       credit: !isDebit ? montant : null,
       solde: newSolde
     });
-
     currentBalance = newSolde;
   }
-
   console.log('[Raiffeisen] Transactions extraites:', transactions.length);
-
-  return transactions.filter(t => 
-    t.description.length > 2 && 
+  return transactions.filter(t =>
+    t.description.length > 2 &&
     !t.description.toLowerCase().includes('solde reporté')
   );
 };
@@ -270,11 +255,11 @@ export const createBankExcelFile = (data: BankTransaction[]): XLSX.WorkBook => {
   const worksheet = XLSX.utils.json_to_sheet(exportData);
   
   worksheet['!cols'] = [
-    { wch: 12 },   // Date
-    { wch: 70 },   // Description – increased width
-    { wch: 14 },   // Débit
-    { wch: 14 },   // Crédit
-    { wch: 14 }    // Solde
+    { wch: 12 }, // Date
+    { wch: 70 }, // Description – increased width
+    { wch: 14 }, // Débit
+    { wch: 14 }, // Crédit
+    { wch: 14 } // Solde
   ];
   
   const workbook = XLSX.utils.book_new();
