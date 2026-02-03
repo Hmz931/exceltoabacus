@@ -260,56 +260,42 @@ export const parseUBSTransactions = (text: string): BankTransaction[] => {
 /* ==================== PostFinance ==================== */
 export const parsePostFinanceTransactions = (text: string): BankTransaction[] => {
   // PostFinance format: Date (DD.MM.YY) | Texte | Crédit | Débit | Valeur | Solde
-  // Note: Le format a Crédit AVANT Débit, et les montants peuvent être sur plusieurs lignes
-  const DATE_RX = /^\d{2}\.\d{2}\.\d{2}(?!\d)/;
+  const DATE_RX = /\d{2}\.\d{2}\.\d{2}(?!\d)/;
   const AMOUNT_RX = /[\d' ]+\.\d{2}/g;
   
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   
-  // Trouver le solde initial ("Etat de compte")
+  console.log('PostFinance - Lignes totales:', lines.length);
+  console.log('PostFinance - Premières lignes:', lines.slice(0, 20));
+  
+  // Trouver le solde initial
   let initialBalance: number | null = null;
   for (const line of lines) {
-    if (line.toLowerCase().includes('etat de compte') || line.toLowerCase().includes('état de compte')) {
+    const lower = line.toLowerCase();
+    if (lower.includes('etat de compte') || lower.includes('état de compte') || lower.includes('solde reporté')) {
       const amounts = line.match(AMOUNT_RX);
-      if (amounts) initialBalance = toFloat(amounts[amounts.length - 1]);
-      break;
-    }
-  }
-  
-  // Fallback: chercher "Solde reporté"
-  if (initialBalance === null) {
-    for (const line of lines) {
-      if (line.toLowerCase().includes('solde reporté')) {
-        const amounts = line.match(AMOUNT_RX);
-        if (amounts) initialBalance = toFloat(amounts[amounts.length - 1]);
+      if (amounts) {
+        initialBalance = toFloat(amounts[amounts.length - 1]);
+        console.log('PostFinance - Solde initial trouvé:', initialBalance, 'dans:', line);
         break;
       }
     }
   }
   
-  console.log('PostFinance - Solde initial trouvé:', initialBalance);
-  
   // Grouper les lignes en blocs de transaction
   const blocks: string[][] = [];
   let block: string[] = [];
-  let startParsing = false;
   
   for (const line of lines) {
-    // Détecter le début du tableau
-    const normLine = line.toLowerCase().replace(/\s+/g, '');
-    if (normLine.includes('date') && normLine.includes('texte') && normLine.includes('solde')) {
-      startParsing = true;
-      continue;
-    }
-    if (!startParsing) continue;
-    
     // Ignorer les headers et footers
-    if (line.includes('PostFinance') || line.includes('Page') || 
-        line.includes('IBAN') || line.includes('Numéro de compte') ||
-        line.includes('Extrait de compte') || line.toLowerCase().includes('etat de compte') ||
-        line.toLowerCase().includes('état de compte')) continue;
+    if (line.includes('PostFinance') || line.includes('IBAN') || 
+        line.includes('Numéro de compte') || line.includes('BIC') ||
+        line.includes('www.postfinance') || line.match(/Page.*\d+.*\d+/) ||
+        line.includes('Régler des achats') || line.includes('3-D Secure') ||
+        line.includes('Compte commercial')) continue;
     
-    if (DATE_RX.test(line)) {
+    // Chercher les lignes commençant par une date DD.MM.YY
+    if (DATE_RX.test(line.substring(0, 8))) {
       if (block.length > 0) blocks.push([...block]);
       block = [line];
     } else if (block.length > 0) {
@@ -318,15 +304,14 @@ export const parsePostFinanceTransactions = (text: string): BankTransaction[] =>
   }
   if (block.length > 0) blocks.push(block);
   
-  console.log('PostFinance - Nombre de blocs trouvés:', blocks.length);
-  
-  if (initialBalance === null) {
-    console.log('PostFinance - Pas de solde initial trouvé');
-    return [];
+  console.log('PostFinance - Blocs trouvés:', blocks.length);
+  if (blocks.length > 0) {
+    console.log('PostFinance - Premier bloc:', blocks[0]);
   }
   
+  // Si pas de solde initial, on commence à 0
+  let prevBalance = initialBalance ?? 0;
   const transactions: BankTransaction[] = [];
-  let prevBalance = initialBalance;
   
   for (const b of blocks) {
     const fullText = b.join(' ');
@@ -341,9 +326,7 @@ export const parsePostFinanceTransactions = (text: string): BankTransaction[] =>
     const amounts = fullText.match(AMOUNT_RX) || [];
     if (amounts.length === 0) continue;
     
-    // Le dernier montant non-date est généralement le solde
-    // Format: montant crédit/débit | date valeur | solde
-    // Chercher le solde (dernier grand nombre)
+    // Le dernier montant est généralement le solde
     let solde = toFloat(amounts[amounts.length - 1]);
     
     // Calculer débit/crédit à partir du delta
@@ -361,11 +344,12 @@ export const parsePostFinanceTransactions = (text: string): BankTransaction[] =>
     
     // Construire la description
     let desc = fullText
-      .replace(DATE_RX, '')
       .replace(/\d{2}\.\d{2}\.\d{2}/g, '');
     amounts.forEach(a => desc = desc.replace(a, ''));
     desc = desc
       .replace(/CHF/gi, '')
+      .replace(/CRÉDIT/gi, '')
+      .replace(/DÉBIT/gi, '')
       .replace(/DONNEUR D'ORDRE:/gi, '')
       .replace(/EXPÉDITEUR:/gi, '')
       .replace(/COMMUNICATIONS:/gi, '')
@@ -375,12 +359,16 @@ export const parsePostFinanceTransactions = (text: string): BankTransaction[] =>
       .replace(/\s+/g, ' ')
       .trim();
     
+    // Skip les lignes "Etat de compte"
+    if (desc.toLowerCase().includes('etat de compte') || desc.toLowerCase().includes('état de compte')) continue;
+    
     if (!desc || desc.length < 2) desc = '(transaction)';
     
     transactions.push({ date: fullDate, description: desc, debit, credit, solde });
     prevBalance = solde;
   }
   
+  console.log('PostFinance - Transactions extraites:', transactions.length);
   return transactions;
 };
 
@@ -495,43 +483,41 @@ export const parseCreditSuisseTransactions = (text: string): BankTransaction[] =
 
 /* ==================== Migros ==================== */
 export const parseMigrosTransactions = (text: string): BankTransaction[] => {
-  // Migros format similaire à BCGE: Date | Texte écriture | Valeur | Débit | Écriture de crédit | Solde CHF
-  // Les montants utilisent l'apostrophe comme séparateur de milliers
+  // Migros format similaire à BCGE: Date | Texte écriture | Valeur | Débit | Crédit | Solde CHF
   const DATE_RX = /^\d{2}\.\d{2}\.\d{4}/;
   const AMOUNT_RX = /[\d']+[.,]\d{2}/g;
   
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   
+  console.log('Migros - Lignes totales:', lines.length);
+  
   // Chercher le solde initial
   let initialBalance: number | null = null;
   for (const line of lines) {
-    if (line.toLowerCase().includes('solde initial') || line.toLowerCase().includes('solde au')) {
+    const lower = line.toLowerCase();
+    if (lower.includes('solde initial') || (lower.includes('solde') && lower.includes('au'))) {
       const amounts = line.match(AMOUNT_RX);
-      if (amounts) initialBalance = toFloat(amounts[amounts.length - 1]);
-      break;
+      if (amounts) {
+        initialBalance = toFloat(amounts[amounts.length - 1]);
+        console.log('Migros - Solde initial:', initialBalance);
+        break;
+      }
     }
   }
-  
-  console.log('Migros - Solde initial:', initialBalance);
   
   // Grouper les lignes en blocs de transaction
   const blocks: string[][] = [];
   let block: string[] = [];
-  let startParsing = false;
   
   for (const line of lines) {
-    // Détecter le début du tableau
-    if (line.includes('Date') && line.includes('Texte') && line.includes('Solde')) {
-      startParsing = true;
-      continue;
-    }
-    if (!startParsing) continue;
-    
     // Ignorer les headers/footers
-    if (line.includes('BANQUE MIGROS') || line.includes('Extrait de compte') ||
-        line.includes('Page ') || line.includes('Indications sans engagement') ||
-        line.toLowerCase().includes('solde initial') || line.toLowerCase().includes('solde final') ||
-        line.toLowerCase().includes('débits') || line.toLowerCase().includes('écritures de crédit')) continue;
+    if (line.includes('BANQUE MIGROS') || line.includes('Banque Migros') ||
+        line.includes('Case postale') || line.includes('BIC/Swift') ||
+        line.includes('banquemigros.ch') || line.includes('Extrait de compte') ||
+        line.includes('Contrat:') || line.includes('Compte:') ||
+        line.includes('IBAN:') || line.includes('Libellé:') ||
+        line.includes('Détenteur') || line.match(/Page\s+\d+/) ||
+        line.includes('Indications sans engagement')) continue;
     
     if (DATE_RX.test(line)) {
       if (block.length > 0) blocks.push([...block]);
@@ -544,8 +530,8 @@ export const parseMigrosTransactions = (text: string): BankTransaction[] => {
   
   console.log('Migros - Blocs trouvés:', blocks.length);
   
-  const transactions: BankTransaction[] = [];
   let prevBalance = initialBalance ?? 0;
+  const transactions: BankTransaction[] = [];
   
   for (const b of blocks) {
     const firstLine = b[0];
@@ -554,20 +540,17 @@ export const parseMigrosTransactions = (text: string): BankTransaction[] => {
     
     const date = dateMatch[0];
     const fullText = b.join(' ');
-    const amounts = fullText.match(AMOUNT_RX) || [];
     
-    if (amounts.length === 0) continue;
-    
-    // Le dernier montant de la première ligne est souvent le solde
-    // Ou chercher dans les lignes suivantes "Solde CHF"
-    let solde = 0;
+    // Extraire les montants de la première ligne (contient date, description, montants, solde)
     const firstLineAmounts = firstLine.match(AMOUNT_RX) || [];
-    if (firstLineAmounts.length > 0) {
-      solde = toFloat(firstLineAmounts[firstLineAmounts.length - 1]);
-    } else {
-      // Chercher le solde dans le texte complet
-      solde = toFloat(amounts[amounts.length - 1]);
-    }
+    const allAmounts = fullText.match(AMOUNT_RX) || [];
+    
+    if (firstLineAmounts.length === 0 && allAmounts.length === 0) continue;
+    
+    // Le dernier montant de la première ligne est le solde
+    let solde = firstLineAmounts.length > 0 
+      ? toFloat(firstLineAmounts[firstLineAmounts.length - 1]) 
+      : toFloat(allAmounts[allAmounts.length - 1]);
     
     // Calculer débit/crédit à partir du delta
     const delta = Math.round((solde - prevBalance) * 100) / 100;
@@ -586,19 +569,21 @@ export const parseMigrosTransactions = (text: string): BankTransaction[] => {
     let desc = fullText
       .replace(DATE_RX, '')
       .replace(/\d{2}\.\d{2}\.\d{4}/g, '');
-    amounts.forEach(a => desc = desc.replace(a, ''));
+    allAmounts.forEach(a => desc = desc.replace(a, ''));
     desc = desc
       .replace(/CHF/gi, '')
       .replace(/Bénéficiaire/gi, '')
-      .replace(/Compte du bénéficiaire.*$/gi, '')
+      .replace(/Compte du bénéficiaire.*?CH\d+/gi, '')
+      .replace(/\(No\. BC\)/gi, '')
       .replace(/Montant/gi, '')
       .replace(/Communication\/Référence/gi, '')
-      .replace(/\(No\. BC\)/gi, '')
-      .replace(/CH\d{2,}/g, '')  // Remove IBAN-like
-      .replace(/\(\d+\)/g, '')   // Remove bank codes
-      .replace(/\d{2}\s+\d{5}\s+\d{5}/g, '')  // Remove reference numbers
+      .replace(/\d{2}\s+\d{5}\s+\d{5}\s+\d{5}\s+\d{5}\s+\d{5}/g, '')
+      .replace(/\(\d+\)/g, '')
       .replace(/\s+/g, ' ')
       .trim();
+    
+    // Skip les lignes de solde initial/final
+    if (desc.toLowerCase().includes('solde initial') || desc.toLowerCase().includes('solde final')) continue;
     
     if (!desc || desc.length < 2) desc = '(transaction)';
     
@@ -606,6 +591,7 @@ export const parseMigrosTransactions = (text: string): BankTransaction[] => {
     prevBalance = solde;
   }
   
+  console.log('Migros - Transactions extraites:', transactions.length);
   return transactions;
 };
 
