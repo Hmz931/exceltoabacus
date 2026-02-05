@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 
-export type BankType = 'bcge' | 'raiffeisen';
+export type BankType = 'bcge' | 'raiffeisen' | 'creditsuisse';
 
 export interface BankTransaction {
   date: string;
@@ -17,7 +17,8 @@ export interface ParsedBankData {
 
 export const BANK_OPTIONS: { value: BankType; label: string }[] = [
   { value: 'bcge', label: 'BCGE (Banque Cantonale de Genève)' },
-  { value: 'raiffeisen', label: 'Raiffeisen' }
+  { value: 'raiffeisen', label: 'Raiffeisen' },
+  { value: 'creditsuisse', label: 'Credit Suisse / UBS' }
 ];
 
 /**
@@ -329,6 +330,181 @@ export const parseRaiffeisenTransactions = (text: string): BankTransaction[] => 
 };
 
 /**
+ * ╔════════════════════════════════════════════════════════════════════════════╗
+ * ║  PARSER CREDIT SUISSE / UBS                                                ║
+ * ╚════════════════════════════════════════════════════════════════════════════╝
+ * 
+ * STRUCTURE CREDIT SUISSE:
+ * - Format tabulaire: Date comptable | Texte | Débit | Crédit | Date valeur | Solde
+ * - "-" dans Débit/Crédit signifie "pas de valeur"
+ * - Descriptions multi-lignes (lignes sans date = suite de la description)
+ * - Pattern: "AMOUNT -" = DÉBIT, "- AMOUNT" = CRÉDIT
+ */
+export const parseCreditSuisseTransactions = (text: string): BankTransaction[] => {
+  const DATE_RX = /^\d{2}\.\d{2}\.\d{4}/;
+  const AMOUNT_RX = /[\d']+[.,]\d{2}/g;
+  
+  console.log('[CreditSuisse] Analyse du texte...');
+  
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  
+  // Grouper les lignes par transaction (commence par une date)
+  const blocks: string[][] = [];
+  let currentBlock: string[] = [];
+  let startParsing = false;
+  
+  for (const line of lines) {
+    // Ignorer les headers et footers
+    if (line.includes('CREDIT SUISSE') || 
+        line.includes('Crée le') || 
+        line.includes('Assistance clientèle') ||
+        line.includes('Fait partie du') ||
+        line.includes('Date comptable') && line.includes('Texte') ||
+        /^\d+\s*\/\s*\d+$/.test(line)) {
+      continue;
+    }
+    
+    // Détecter le début des écritures
+    if (line.toLowerCase().includes('écritures') || line.toLowerCase().includes('solde')) {
+      startParsing = true;
+      continue;
+    }
+    
+    if (!startParsing && !DATE_RX.test(line)) continue;
+    startParsing = true;
+    
+    if (DATE_RX.test(line)) {
+      if (currentBlock.length > 0) {
+        blocks.push([...currentBlock]);
+      }
+      currentBlock = [line];
+    } else if (currentBlock.length > 0) {
+      currentBlock.push(line);
+    }
+  }
+  
+  if (currentBlock.length > 0) {
+    blocks.push(currentBlock);
+  }
+  
+  console.log('[CreditSuisse] Blocs de transactions trouvés:', blocks.length);
+  
+  const transactions: BankTransaction[] = [];
+  
+  for (const block of blocks) {
+    const fullText = block.join(' ');
+    
+    // Extraire la date comptable
+    const dateMatch = fullText.match(DATE_RX);
+    if (!dateMatch) continue;
+    const date = dateMatch[0];
+    
+    // Trouver toutes les dates dans le texte (date comptable + date valeur)
+    const allDates = fullText.match(/\d{2}\.\d{2}\.\d{4}/g) || [];
+    
+    // Extraire tous les montants
+    const amounts = fullText.match(AMOUNT_RX) || [];
+    
+    let debit: number | null = null;
+    let credit: number | null = null;
+    let solde: number = 0;
+    
+    // Pattern Credit Suisse: 
+    // "AMOUNT -" ou "AMOUNT - " = DÉBIT (avant le tiret)
+    // "- AMOUNT" ou "- AMOUNT " = CRÉDIT (après le tiret)
+    
+    // Chercher pattern débit: nombre suivi de tiret
+    const debitMatch = fullText.match(/([\d']+[.,]\d{2})\s+-(?:\s|$|\s+[\d']+)/);
+    // Chercher pattern crédit: tiret suivi de nombre
+    const creditMatch = fullText.match(/-\s+([\d']+[.,]\d{2})/);
+    
+    if (debitMatch) {
+      const potentialDebit = toFloat(debitMatch[1]);
+      // Vérifier que ce n'est pas un solde (généralement le dernier montant)
+      if (amounts.length > 1 && debitMatch[1] !== amounts[amounts.length - 1]) {
+        debit = potentialDebit;
+      } else if (amounts.length === 1) {
+        debit = potentialDebit;
+      }
+    }
+    
+    if (creditMatch) {
+      const potentialCredit = toFloat(creditMatch[1]);
+      // Vérifier que ce n'est pas le même que le solde
+      if (amounts.length > 1 && creditMatch[1] !== amounts[amounts.length - 1]) {
+        credit = potentialCredit;
+      } else if (amounts.length === 1) {
+        credit = potentialCredit;
+      }
+    }
+    
+    // Le solde est généralement le dernier montant qui n'est pas un débit/crédit
+    // ou le dernier nombre avant une date de valeur
+    if (amounts.length > 0) {
+      // Trouver le solde - généralement après les patterns débit/crédit
+      const soldePattern = /(\d{2}\.\d{2}\.\d{4})\s+([\d']+[.,]\d{2})\s*$/;
+      const soldeMatch = fullText.match(soldePattern);
+      if (soldeMatch) {
+        solde = toFloat(soldeMatch[2]);
+      } else {
+        // Sinon prendre le dernier montant
+        solde = toFloat(amounts[amounts.length - 1]);
+      }
+    }
+    
+    // Nettoyer la description
+    let description = fullText
+      .replace(DATE_RX, '') // Enlever date comptable
+      .replace(/\d{2}\.\d{2}\.\d{4}/g, '') // Enlever toutes les dates
+      .replace(/([\d']+[.,]\d{2})\s+-/g, '') // Enlever pattern débit
+      .replace(/-\s+([\d']+[.,]\d{2})/g, '') // Enlever pattern crédit
+      .replace(/[\d']+[.,]\d{2}/g, '') // Enlever les montants restants
+      .replace(/CHF/gi, '')
+      .replace(/-/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    // Ignorer les lignes sans transaction réelle
+    if (!description || description.length < 3) continue;
+    if (description.toLowerCase().includes('solde') && !description.toLowerCase().includes('paiement')) continue;
+    
+    // Si ni débit ni crédit n'est détecté mais qu'on a des montants
+    if (debit === null && credit === null && amounts.length > 0) {
+      // Analyser le contexte textuel
+      const textLower = description.toLowerCase();
+      const amount = toFloat(amounts[0]);
+      
+      if (textLower.includes('paiement clearing') || 
+          textLower.includes('versement') ||
+          textLower.includes('virement entrant')) {
+        credit = amount;
+      } else if (textLower.includes('frais') || 
+                 textLower.includes('carte') ||
+                 textLower.includes('paiement qr') ||
+                 textLower.includes('ordre de bonification') ||
+                 textLower.includes('achat')) {
+        debit = amount;
+      }
+    }
+    
+    // Ne pas ajouter de transactions sans montant
+    if (debit === null && credit === null) continue;
+    
+    transactions.push({
+      date,
+      description,
+      debit,
+      credit,
+      solde
+    });
+  }
+  
+  console.log('[CreditSuisse] Transactions extraites:', transactions.length);
+  
+  return transactions;
+};
+
+/**
  * Parse PDF text based on bank type
  */
 export const parseTransactionsFromText = (text: string, bankType: BankType = 'bcge'): BankTransaction[] => {
@@ -336,6 +512,10 @@ export const parseTransactionsFromText = (text: string, bankType: BankType = 'bc
  
   if (bankType === 'raiffeisen') {
     return parseRaiffeisenTransactions(text);
+  }
+  
+  if (bankType === 'creditsuisse') {
+    return parseCreditSuisseTransactions(text);
   }
  
   return parseBCGETransactions(text);
