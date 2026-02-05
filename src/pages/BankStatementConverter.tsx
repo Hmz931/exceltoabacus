@@ -286,6 +286,7 @@ const BankStatementConverter: React.FC = () => {
               <ul className="text-sm text-blue-700 space-y-1">
                 <li>• <strong>BCGE</strong> (Banque Cantonale de Genève)</li>
                 <li>• <strong>Raiffeisen</strong> - Relevés avec tableau structuré</li>
+                <li>• <strong>Credit Suisse / UBS</strong> - Format tabulaire standard</li>
                 <li>• Format PDF avec dates au format JJ.MM.AAAA</li>
                 <li>• Colonnes extraites: Date, Description, Débit, Crédit, Solde</li>
               </ul>
