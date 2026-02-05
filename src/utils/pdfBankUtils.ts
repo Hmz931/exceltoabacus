@@ -331,123 +331,239 @@ export const parseRaiffeisenTransactions = (text: string): BankTransaction[] => 
 
 /**
  * ╔════════════════════════════════════════════════════════════════════════════╗
- * ║  PARSER CREDIT SUISSE / UBS                                                ║
+ * ║  PARSER CREDIT SUISSE - Version 3.0 (ported from Python)                   ║
  * ╚════════════════════════════════════════════════════════════════════════════╝
  * 
- * STRUCTURE CREDIT SUISSE:
- * - Format tabulaire Markdown: Date comptable | Texte | Débit | Crédit | Date valeur | Solde
- * - Les lignes commençant par "|" sont des lignes de tableau
- * - Les lignes de description multi-lignes ont la date vide mais font partie de la transaction précédente
- * - "-" dans Débit/Crédit signifie pas de valeur
+ * PORTED FROM PYTHON VERSION (CreditSuisseStatementParser)
+ * 
+ * KEY PATTERNS:
+ * - CREDIT: "- [amount]" (dash followed by amount)
+ * - DEBIT: "[amount] -" (amount followed by dash)
+ * - Balance: last number at the end of the text
+ * - Multi-line transactions: lines without date are continuation of previous
  */
 export const parseCreditSuisseTransactions = (text: string): BankTransaction[] => {
-  const DATE_RX = /^\d{2}\.\d{2}\.\d{4}/;
-  
   console.log('[CreditSuisse] Démarrage de l\'analyse...');
   
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const lines = text.split('\n');
   const transactions: BankTransaction[] = [];
   
-  let currentTransaction: {
-    date: string;
-    description: string[];
-    debit: number | null;
-    credit: number | null;
-    solde: number;
-  } | null = null;
-  
-  for (const line of lines) {
-    // Ignorer les lignes de header, footer et séparateurs
-    if (line.includes('CREDIT SUISSE') ||
-        line.includes('Crée le') ||
-        line.includes('Assistance clientèle') ||
-        line.includes('Fait partie du') ||
-        line.includes('Date comptable') ||
-        line.includes('# ') ||
-        line.startsWith('---') ||
-        line.startsWith('| ---') ||
-        /^\d+\s*\/\s*\d+$/.test(line) ||
-        line.includes('parsed-documents://') ||
-        line.includes('parsed-image') ||
-        line.includes('Images from page')) {
-      continue;
+  // Skip patterns (headers, footers, etc.)
+  const shouldSkipLine = (line: string): boolean => {
+    if (!line || !line.trim()) return true;
+    
+    const skipPatterns = [
+      'Crée le',
+      'Assistance clientèle',
+      'CREDIT SUISSE',
+      'Fait partie du',
+      'Date comptable',
+      'Texte',
+      'Débit',
+      'Crédit',
+      'Date de valeur',
+      'Solde',
+      '===== Page',
+      'Chercher écritures',
+      'Compte Compte entreprise',
+      'Écritures',
+      'parsed-documents://',
+      'parsed-image',
+      'Images from page',
+      '# ',
+      '---',
+      '| ---'
+    ];
+    
+    for (const pattern of skipPatterns) {
+      if (line.includes(pattern)) return true;
     }
     
-    // Détecter les lignes de tableau (commencent par |)
-    if (line.startsWith('|')) {
-      // Parser la ligne de tableau
-      const cells = line.split('|').map(c => c.trim()).filter((_, i, arr) => i > 0 && i < arr.length - 1);
-      
-      if (cells.length >= 5) {
-        const dateCell = cells[0];
-        const texteCell = cells[1];
-        const debitCell = cells[2];
-        const creditCell = cells[3];
-        // cells[4] = Date de valeur
-        const soldeCell = cells[5] || '';
-        
-        // Vérifier si c'est une nouvelle transaction (a une date)
-        if (DATE_RX.test(dateCell)) {
-          // Sauvegarder la transaction précédente
-          if (currentTransaction) {
-            transactions.push({
-              date: currentTransaction.date,
-              description: currentTransaction.description.join(' ').replace(/\s+/g, ' ').trim(),
-              debit: currentTransaction.debit,
-              credit: currentTransaction.credit,
-              solde: currentTransaction.solde
-            });
+    // Page numbers like "1 / 165"
+    if (/^\d+\s*\/\s*\d+$/.test(line.trim())) return true;
+    
+    return false;
+  };
+  
+  // Clean amount string to float
+  const cleanAmount = (amountStr: string | null | undefined): number | null => {
+    if (!amountStr || amountStr === '-' || amountStr.trim() === '') return null;
+    
+    let cleaned = String(amountStr).trim().replace(/'/g, '').replace(/ /g, '');
+    cleaned = cleaned.replace(',', '.');
+    cleaned = cleaned.replace(/[^\d.\-]/g, '');
+    
+    // Handle multiple decimal points
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+      cleaned = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+    }
+    
+    try {
+      const value = parseFloat(cleaned);
+      return isNaN(value) ? null : Math.round(value * 100) / 100;
+    } catch {
+      return null;
+    }
+  };
+  
+  // Extract transaction from combined text
+  const extractFromCombinedText = (text: string): {
+    texte: string;
+    debit: number | null;
+    credit: number | null;
+    solde: number | null;
+    dateValeur: string | null;
+  } => {
+    let result = {
+      texte: '',
+      debit: null as number | null,
+      credit: null as number | null,
+      solde: null as number | null,
+      dateValeur: null as string | null
+    };
+    
+    let workingText = text;
+    
+    // Find all dates in text
+    const dates = workingText.match(/\d{2}\.\d{2}\.\d{4}/g) || [];
+    if (dates.length >= 2) {
+      result.dateValeur = dates[dates.length - 1];
+    }
+    
+    // Find balance (last number in text)
+    const balanceMatch = workingText.match(/(-?[\d']+[\d',\.]*\d)\s*$/);
+    if (balanceMatch) {
+      result.solde = cleanAmount(balanceMatch[1]);
+      workingText = workingText.slice(0, balanceMatch.index).trim();
+    }
+    
+    // CREDIT pattern: dash followed by amount "- 1'234.56"
+    const creditMatch = workingText.match(/-\s+([\d']+[\d',\.]*\d)/);
+    if (creditMatch) {
+      result.credit = cleanAmount(creditMatch[1]);
+      workingText = workingText.replace(creditMatch[0], ' ');
+    }
+    
+    // DEBIT pattern: amount followed by dash "1'234.56 -"
+    const debitMatch = workingText.match(/([\d']+[\d',\.]*\d)\s+-/);
+    if (debitMatch) {
+      result.debit = cleanAmount(debitMatch[1]);
+      workingText = workingText.replace(debitMatch[0], ' ');
+    }
+    
+    // If no pattern matched, look for standalone numbers
+    if (result.debit === null && result.credit === null) {
+      const allNumbers = workingText.match(/([\d']+[\d',\.]*\d)/g);
+      if (allNumbers && allNumbers.length > 0) {
+        // Usually the first larger number is the transaction amount
+        for (const numStr of allNumbers) {
+          const amount = cleanAmount(numStr);
+          if (amount !== null && amount > 10) {
+            // Heuristic: treat as debit by default
+            result.debit = amount;
+            workingText = workingText.replace(numStr, ' ');
+            break;
           }
-          
-          // Parser les montants
-          let debit: number | null = null;
-          let credit: number | null = null;
-          let solde: number = 0;
-          
-          if (debitCell && debitCell !== '-') {
-            debit = toFloat(debitCell);
-          }
-          if (creditCell && creditCell !== '-') {
-            credit = toFloat(creditCell);
-          }
-          if (soldeCell && soldeCell !== '-') {
-            solde = toFloat(soldeCell);
-          }
-          
-          // Créer nouvelle transaction
-          currentTransaction = {
-            date: dateCell,
-            description: texteCell ? [texteCell] : [],
-            debit,
-            credit,
-            solde
-          };
-        } else if (currentTransaction && texteCell) {
-          // Ligne de continuation (pas de date) - ajouter à la description
-          currentTransaction.description.push(texteCell);
         }
       }
     }
-  }
+    
+    // Clean up description
+    let description = workingText;
+    
+    // Remove extra dashes
+    description = description.replace(/\s*-\s*/g, ' ');
+    
+    // Remove date valeur if present
+    if (result.dateValeur) {
+      description = description.replace(result.dateValeur, '');
+    }
+    
+    // Clean up multiple spaces and trim
+    description = description.replace(/\s+/g, ' ').trim();
+    
+    // Remove leading/trailing punctuation
+    description = description.replace(/^[^a-zA-Z0-9À-ÿ]+|[^a-zA-Z0-9À-ÿ]+$/g, '');
+    
+    result.texte = description;
+    
+    return result;
+  };
   
-  // Sauvegarder la dernière transaction
-  if (currentTransaction) {
-    transactions.push({
-      date: currentTransaction.date,
-      description: currentTransaction.description.join(' ').replace(/\s+/g, ' ').trim(),
-      debit: currentTransaction.debit,
-      credit: currentTransaction.credit,
-      solde: currentTransaction.solde
-    });
+  // Parse transactions from text lines
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    
+    // Skip header/footer lines
+    if (shouldSkipLine(line)) {
+      i++;
+      continue;
+    }
+    
+    // Look for date at beginning (DD.MM.YYYY)
+    const dateMatch = line.match(/^(\d{2}\.\d{2}\.\d{4})\s+(.+)$/);
+    
+    if (dateMatch) {
+      const dateComptable = dateMatch[1];
+      const restOfLine = dateMatch[2];
+      
+      // Look ahead for continuation lines (up to 10 lines max)
+      const fullTextParts: string[] = [restOfLine];
+      let nextIdx = i + 1;
+      let linesConsumed = 1;
+      
+      while (nextIdx < lines.length && linesConsumed < 10) {
+        const nextLine = lines[nextIdx].trim();
+        
+        // Stop if we hit another date or skip pattern
+        if (/^\d{2}\.\d{2}\.\d{4}/.test(nextLine) || shouldSkipLine(nextLine)) {
+          break;
+        }
+        
+        // Stop if line looks like an amount + date pattern (end of transaction)
+        if (/[\d',\.]+\s+\d{2}\.\d{2}\.\d{4}/.test(nextLine) ||
+            /\d{2}\.\d{2}\.\d{4}\s+[\d',\.]+/.test(nextLine)) {
+          // Include this line but stop after
+          fullTextParts.push(nextLine);
+          linesConsumed++;
+          nextIdx++;
+          break;
+        }
+        
+        fullTextParts.push(nextLine);
+        linesConsumed++;
+        nextIdx++;
+      }
+      
+      // Combine all parts
+      const fullText = fullTextParts.join(' ');
+      
+      // Extract transaction details
+      const extracted = extractFromCombinedText(fullText);
+      
+      // Only add if we have at least one amount
+      if (extracted.debit !== null || extracted.credit !== null) {
+        transactions.push({
+          date: dateComptable,
+          description: extracted.texte || '(Transaction)',
+          debit: extracted.debit,
+          credit: extracted.credit,
+          solde: extracted.solde ?? 0
+        });
+      }
+      
+      // Skip ahead
+      i = nextIdx;
+    } else {
+      i++;
+    }
   }
   
   console.log('[CreditSuisse] Transactions extraites:', transactions.length);
   
-  // Filtrer les transactions vides ou invalides
-  return transactions.filter(t => 
-    t.description.length > 0 && 
-    (t.debit !== null || t.credit !== null)
-  );
+  return transactions;
 };
 
 /**
