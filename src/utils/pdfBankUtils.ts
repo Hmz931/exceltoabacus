@@ -40,183 +40,172 @@ export const toFloat = (value: string | null | undefined): number => {
 
 /**
  * ╔════════════════════════════════════════════════════════════════════════════╗
- * ║  PARSER BCGE CORRIGÉ - VERSION FINALE                                      ║
+ * ║  PARSER BCGE - VERSION 2.0 (REWRITTEN)                                     ║
  * ╚════════════════════════════════════════════════════════════════════════════╝
  * 
- * PROBLÈME IDENTIFIÉ:
- * Le regex /\d{1,3}(?:'?\d{3})*[.,]\d{2}/g capturait aussi les dates (ex: "03.02")
- * 
- * SOLUTION:
- * 1. Améliorer le regex pour exclure les dates
- * 2. Utiliser le delta entre soldes consécutifs pour déterminer Débit/Crédit
- * 3. Fallback sur l'analyse de texte (/C/, Originator = crédit; Beneficiary, Achat = débit)
- * 
- * STRUCTURE BCGE:
- * - Chaque ligne: DATE Description MONTANT_TRANSACTION SOLDE
- * - Le DERNIER montant = SOLDE après transaction
- * - L'AVANT-DERNIER montant = MONTANT de la transaction
+ * APPROACH:
+ * 1. Replace dates (DD.MM.YYYY) and currency codes (CHF/EUR/USD) with spaces
+ *    of equal length to PRESERVE character positions
+ * 2. Use a simple amount regex that captures ALL Swiss-format numbers (0.00 to 999'999.99)
+ * 3. Last amount on first line = BALANCE, second-to-last = TRANSACTION AMOUNT
+ * 4. Determine Debit/Credit from balance delta between consecutive transactions
+ * 5. Filter page headers/footers that repeat on every PDF page
  */
 export const parseBCGETransactions = (text: string): BankTransaction[] => {
-  const datePattern = /^\d{2}\.\d{2}\.\d{4}/;
-  
-  // ✨ REGEX AMÉLIORÉ: Exclut les dates en exigeant soit 3+ chiffres OU un séparateur d'apostrophe
-  // Cela empêche la capture de "03.02" mais capture "128.64", "1'533.33", etc.
-  const AMOUNT_RX = /(?<!\d)\d{1,3}(?:'?\d{3})+[.,]\d{2}|(?<!\d)\d{4,}[.,]\d{2}|(?<!\d)\d{3}[.,]\d{2}(?!\d)/g;
-  
-  const rows: string[][] = [];
+  const DATE_RX = /^\d{2}\.\d{2}\.\d{4}/;
+  const DATE_ALL_RX = /\d{2}\.\d{2}\.\d{4}/g;
+  // Captures all Swiss-format amounts: 0.00, 9.45, 56.05, 128.64, 1'627.10, 18'359.65
+  const AMOUNT_RX = /\d{1,3}(?:['']?\d{3})*[.,]\d{2}/g;
+
   const lines = text.split('\n');
-  let transactionLines: string[] = [];
- 
-  console.log('[BCGE] Nombre de lignes à analyser:', lines.length);
- 
-  // Grouper les lignes par bloc de transaction
+
+  // Skip non-transaction lines (bank headers, footers, page markers)
+  const isJunkLine = (line: string): boolean => {
+    const l = line.toLowerCase().trim();
+    if (!l) return true;
+    if (l.includes('banque cantonale')) return true;
+    if (l.startsWith('po box') || l.startsWith('p.o. box')) return true;
+    if (l.startsWith('telefon') || l.startsWith('téléphone')) return true;
+    if (l.startsWith('vat no') || l.startsWith('tva no')) return true;
+    if (l.startsWith('clearing no')) return true;
+    if (l.includes('bic/swift') || l.includes('bcgechgg')) return true;
+    if (l.includes('individual transactions')) return true;
+    if (l.includes('posting text') && l.includes('balance')) return true;
+    if (l.includes('no responsibility')) return true;
+    if (l.includes('credit entry') && l.includes('debit')) return true;
+    if (/^\d{5,}\s*\|/.test(line.trim())) return true; // Footer codes like "8720103 | ..."
+    if (/^page\s+\d+/i.test(l)) return true;
+    if (/^\d+\s*\/\s*\d+$/.test(l)) return true; // "67 / 149"
+    return false;
+  };
+
+  // Group lines into transaction blocks (each starting with a date)
+  const blocks: string[][] = [];
+  let block: string[] = [];
+
   for (const line of lines) {
-    const trimmedLine = line.trim();
-    if (!trimmedLine) continue;
-   
-    if (datePattern.test(trimmedLine)) {
-      if (transactionLines.length > 0) {
-        rows.push([...transactionLines]);
-      }
-      transactionLines = [trimmedLine];
-    } else if (transactionLines.length > 0) {
-      transactionLines.push(trimmedLine);
+    const trimmed = line.trim();
+    if (isJunkLine(trimmed)) continue;
+
+    if (DATE_RX.test(trimmed)) {
+      if (block.length > 0) blocks.push([...block]);
+      block = [trimmed];
+    } else if (block.length > 0) {
+      block.push(trimmed);
     }
   }
- 
-  if (transactionLines.length > 0) {
-    rows.push(transactionLines);
-  }
- 
-  console.log('[BCGE] Blocs de transactions trouvés:', rows.length);
- 
-  const structuredData: { 
-    date: string; 
-    texte: string; 
-    montantTransaction: number;
-    soldeNum: number;
+  if (block.length > 0) blocks.push(block);
+
+  console.log('[BCGE] Transaction blocks found:', blocks.length);
+
+  // Parse each block
+  const parsed: {
+    date: string;
+    description: string;
+    amount: number;
+    balance: number;
   }[] = [];
- 
-  // Parser chaque bloc de transaction
-  for (const block of rows) {
-    const firstLine = block[0];
-    const dateMatch = firstLine.match(datePattern);
+
+  for (const blk of blocks) {
+    const firstLine = blk[0];
+    const dateMatch = firstLine.match(DATE_RX);
     if (!dateMatch) continue;
-   
+
     const date = dateMatch[0];
-    
-    // Extraire tous les montants (en excluant les dates grâce au nouveau regex)
-    const amounts = firstLine.match(AMOUNT_RX) || [];
-    
-    console.log(`[BCGE] Date: ${date}, Montants trouvés:`, amounts);
-    
-    // Dans le format BCGE: dernier montant = SOLDE, avant-dernier = TRANSACTION
-    if (amounts.length < 2) {
-      console.warn(`[BCGE] Ligne ignorée (moins de 2 montants): ${firstLine}`);
-      continue;
+
+    // Replace dates and currency codes with spaces of SAME LENGTH (preserves positions)
+    let searchLine = firstLine.replace(DATE_ALL_RX, m => ' '.repeat(m.length));
+    searchLine = searchLine.replace(/\b(CHF|EUR|USD)\b/gi, m => ' '.repeat(m.length));
+
+    // Find all amounts in the position-preserved line
+    const amountMatches = [...searchLine.matchAll(AMOUNT_RX)];
+
+    if (amountMatches.length < 1) continue;
+
+    let amount: number;
+    let balance: number;
+    let descEnd: number;
+
+    if (amountMatches.length >= 2) {
+      balance = toFloat(amountMatches[amountMatches.length - 1][0]);
+      amount = toFloat(amountMatches[amountMatches.length - 2][0]);
+      descEnd = amountMatches[amountMatches.length - 2].index!;
+    } else {
+      // Only 1 amount = balance; transaction amount inferred from delta later
+      balance = toFloat(amountMatches[0][0]);
+      amount = 0;
+      descEnd = amountMatches[0].index!;
     }
-    
-    const montantTransaction = toFloat(amounts[amounts.length - 2]);
-    const balanceVal = toFloat(amounts[amounts.length - 1]);
-   
-    // Nettoyer le texte de description
-    let firstLineClean = firstLine.replace(datePattern, '');
-    amounts.forEach(amt => {
-      firstLineClean = firstLineClean.replace(amt, '');
-    });
-    firstLineClean = firstLineClean.trim();
-   
-    let fullText = firstLineClean;
-    if (block.length > 1) {
-      fullText += ' ' + block.slice(1).join(' ');
+
+    // Build description: text between date end and second-to-last amount
+    let desc = firstLine.substring(date.length, descEnd).trim();
+
+    // Append continuation lines
+    if (blk.length > 1) {
+      const continuation = blk.slice(1).join(' ');
+      desc = desc ? desc + ' ' + continuation : continuation;
     }
-   
-    fullText = fullText.replace(/CHF/gi, '');
-    fullText = fullText.replace(/\s+/g, ' ').trim();
-   
-    // Filtrer les lignes de header et lignes vides
-    if (fullText.toLowerCase().includes('solde') && fullText.toLowerCase().includes('date')) continue;
-    if (fullText.toLowerCase().includes('relevé de compte')) continue;
-    if (!fullText || fullText.length < 3) continue;
-   
-    structuredData.push({ 
-      date, 
-      texte: fullText, 
-      montantTransaction,
-      soldeNum: balanceVal 
-    });
+
+    // Clean description
+    desc = desc.replace(/\s+/g, ' ').trim();
+
+    // Skip empty descriptions
+    if (!desc || desc.length < 2) continue;
+
+    parsed.push({ date, description: desc, amount, balance });
   }
- 
-  console.log('[BCGE] Transactions structurées:', structuredData.length);
- 
+
+  console.log('[BCGE] Parsed transactions:', parsed.length);
+
+  // Determine debit/credit from balance delta
   const transactions: BankTransaction[] = [];
- 
-  // Déterminer Débit/Crédit pour chaque transaction
-  for (let i = 0; i < structuredData.length; i++) {
-    const row = structuredData[i];
+
+  for (let i = 0; i < parsed.length; i++) {
+    const row = parsed[i];
     let debit: number | null = null;
     let credit: number | null = null;
-   
-    // MÉTHODE 1: Calcul du delta avec le solde précédent (le plus fiable)
+    let amount = row.amount;
+
     if (i > 0) {
-      const delta = row.soldeNum - structuredData[i - 1].soldeNum;
-      const roundedDelta = Math.round(delta * 100) / 100;
-      const montantAttendu = Math.round(row.montantTransaction * 100) / 100;
-      
-      console.log(`[BCGE] Transaction ${i}: delta=${roundedDelta}, montant=${montantAttendu}`);
-      
-      // Vérifier si le delta correspond au montant de la transaction
-      if (Math.abs(Math.abs(roundedDelta) - montantAttendu) < 0.02) {
-        // Delta correspond au montant
-        if (roundedDelta < 0) {
-          debit = montantAttendu;
-        } else {
-          credit = montantAttendu;
-        }
+      const delta = Math.round((row.balance - parsed[i - 1].balance) * 100) / 100;
+
+      // If amount was 0 (only balance extracted), infer from delta
+      if (amount === 0 && delta !== 0) {
+        amount = Math.abs(delta);
+      }
+
+      if (delta < 0) {
+        debit = amount || Math.abs(delta);
+      } else if (delta > 0) {
+        credit = amount || delta;
       } else {
-        // Delta ne correspond pas: utiliser l'analyse de texte (MÉTHODE 2)
-        const textLower = row.texte.toLowerCase();
-        
-        if (textLower.includes('/c/') || textLower.includes('originator')) {
-          credit = row.montantTransaction;
-        } else if (textLower.includes('beneficiary') || textLower.includes('achat')) {
-          debit = row.montantTransaction;
+        // Zero delta: use text heuristics
+        const tl = row.description.toLowerCase();
+        if (tl.includes('/c/') || tl.includes('originator') || tl.includes('credit')) {
+          credit = amount;
         } else {
-          // Fallback: si delta négatif = débit, sinon crédit
-          if (roundedDelta < 0) {
-            debit = montantAttendu;
-          } else {
-            credit = montantAttendu;
-          }
+          debit = amount;
         }
       }
     } else {
-      // Première transaction: utiliser l'analyse de texte
-      const textLower = row.texte.toLowerCase();
-      
-      if (textLower.includes('/c/') || textLower.includes('originator')) {
-        credit = row.montantTransaction;
-      } else if (textLower.includes('beneficiary') || textLower.includes('achat')) {
-        debit = row.montantTransaction;
+      // First transaction: text heuristics
+      const tl = row.description.toLowerCase();
+      if (tl.includes('/c/') || tl.includes('originator') || tl.includes('credit')) {
+        credit = amount;
       } else {
-        // Heuristique: montant élevé = probablement un crédit, faible = débit
-        if (row.montantTransaction < 50000) {
-          debit = row.montantTransaction;
-        } else {
-          credit = row.montantTransaction;
-        }
+        debit = amount;
       }
     }
-   
+
     transactions.push({
       date: row.date,
-      description: row.texte,
+      description: row.description,
       debit,
       credit,
-      solde: row.soldeNum
+      solde: row.balance
     });
   }
- 
+
   return transactions;
 };
 
